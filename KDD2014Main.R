@@ -153,8 +153,40 @@ rowProjects <- 50000
 correlationsProjectsList <- correlationsAndTest(projects[indicesTrainProjects[1:rowProjects], c(30, 31, 32)], y[1:rowProjects])
 correlationsResourcesList <- correlationsAndTest(resources[indicesTrainProjects[1:rowProjects], c(30, 31, 32)], y[1:rowProjects])
 
+#####################################################################
 #Cross-validation Projects Model
+#GBM
+trainIndices <- sample(indicesTrainProjects, 5000) # Number of samples considered for prototyping / best parameter selection, it has to be greater than 500 the sampling size, otherwise it will throw an error saying that more data is required 
+#trainIndices <- sample(indicesTrainProjects, length(indicesTrainProjects)) # Use this line to use the complete dataset and shuffle the data
 
+sampledTrain <- match(trainIndices, indicesTrainProjects)
+  
+#Setting cross validation parameters
+amountOfTrees <- 60000
+NumberofCVFolds <- 5
+cores <- NumberofCVFolds
+
+if (NumberofCVFolds > 3){
+  cores <- detectCores() - 1
+}
+
+treeDepth <- 5 #interaction.depth X-validation
+#sample indices
+set.seed(102)
+sampleIndices <- sort(sample(1:nrow(projects[trainIndices, ]), floor(nrow(projects[trainIndices, ]) * 0.6))) # these indices are useful for validation
+
+#project variables' indices
+variablesIndices <- c(8, 10, seq(13, 34)) # with all of the valid variables
+  
+##grid cross validation
+gridCrossValidationGBM <- gridCrossValidationGBM(x = projects[trainIndices, variablesIndices], 
+                                                 y = y[sampledTrain], sampleIndices, amountOfTrees,
+                                                 NumberofCVFolds, cores,
+                                                 seq(1, 6), c(0.001, 0.003, 0.01))
+
+#optimal hipeparameters for tree depth and for shrinkage
+optimalTreeDepth <- gridCrossValidationGBM[1]
+optimalShrinkage <- gridCrossValidationGBM[2]
 
 
 
