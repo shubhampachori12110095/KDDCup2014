@@ -16,15 +16,16 @@ require('ggplot2')
 require('Metrics')
 
 #Set Working Directory
-workingDirectory <- '~/Documents/Wacax/Kaggle Data Analysis/KDD Cup 2014/KDD Cup 2014/'
+workingDirectory <- '~/Wacax/Kaggle/KDD Cup 2014/KDD Cup 2014/'
 setwd(workingDirectory)
 
-dataDirectory <- '~/Documents/Wacax/Kaggle Data Analysis/KDD Cup 2014/Data/'
+dataDirectory <- '~/Wacax/Kaggle/KDD Cup 2014/Data/'
 
 #Load functions
 source(paste0(workingDirectory, 'text2Matrix.R'))
 source(paste0(workingDirectory, 'gridCrossValidationGBM.R'))
 source(paste0(workingDirectory, 'extractBestTree.R'))
+source(paste0(workingDirectory, 'correlationsAndTest.R'))
 
 #############################
 #Load Data
@@ -138,7 +139,8 @@ test <-
 ################################################################
 #EDA
 #Unique Samples
-yDispersion <- ggplot(as.data.frame(y), aes(y)) + geom_density()
+ggplot(as.data.frame(y), aes(y)) + geom_histogram()
+isExitingProbabilities <- table(y) / length(y)
 
 str(projects)
 apply(projects, 2, function(vector){return(length(unique(vector)))})
@@ -146,12 +148,12 @@ str(resources)
 apply(resources, 2, function(vector){return(length(unique(vector)))})
 
 #Find correlations between data
-correlationsProjectsList <- apply(projects[indicesTrainProjects, ], 2, function(vector){
-              			  return(corr.test(vector, y = y, adjust = 'bonferroni'))
-})
-correlationsResourcesList <- apply(resources[indicesTrainResources, ], 2, function(vector){
-                               return(corr.test(vector, y = y, adjust = 'bonferroni'))
-})
+rowProjects <- 50000
+#rowProjects <- nrow(projects)
+correlationsProjectsList <- correlationsAndTest(projects[indicesTrainProjects[1:rowProjects], c(30, 31, 32)], y[1:rowProjects])
+correlationsResourcesList <- correlationsAndTest(resources[indicesTrainProjects[1:rowProjects], c(30, 31, 32)], y[1:rowProjects])
+
+#Cross-validation Projects Model
 
 
 
