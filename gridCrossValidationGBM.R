@@ -21,6 +21,9 @@ gridCrossValidationGBM <- function(xGen, yGen, subset, numberOfTrees,
                      verbose = TRUE, distribution = distributionSelected,
                      nTrain = floor(length(subset) * OOBPercentage))
     
+    summary(model)
+    
+    
     trainError[i] <- min(model$train.error)
     oobError[i] <- min(model$valid.error)
     #cvError[i] <- min(model$cv.error)
