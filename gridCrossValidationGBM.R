@@ -13,7 +13,7 @@ gridCrossValidationGBM <- function(xGen, yGen, subset, numberOfTrees,
   oobError <- rep(NA, nrow(grid))
   #cvError <- rep(NA, nrow(grid))
   aucError <- rep(NA, nrow(grid))
-  
+    
   for(i in 1:nrow(grid)){
     model <- gbm.fit(x = xGen[subset, ], y = yGen[subset], 
                      n.trees = numberOfTrees, interaction.depth = grid[i, 1],
@@ -31,21 +31,28 @@ gridCrossValidationGBM <- function(xGen, yGen, subset, numberOfTrees,
     #auc Error
     predictionGBM <- predict(model, newdata = xGen[-subset, ], 
                              n.trees = abs(model$n.trees - which.min(model$valid.error)), 
-                             single.tree = TRUE)
-    #predictionVector <- round(predictionVector)
-    errorVector <- ifelse(predictionGBM > 0, 1, 0)
-    aucError[i] <- auc(errorVector, yGen[-subset])  
-    print(paste('Error for tree depth', grid[i, 1], 'and shrinkage', grid[i, 1], 'calculated.',
-                'Out of', grid[nrow(grid), 1], 'and', grid[nrow(grid), 2], 'AUC of', aucError[i]))
+                             single.tree = TRUE, type = 'response')
+    
+    #predictionGBM <- ifelse(distributionSelected == 'bernoulli', 
+    #                        break, predictionGBM <- exp(predictionGBM))
+    
+    aucError[i] <- auc(yGen[-subset], predictionGBM)     
+    print(paste('Error for tree depth', grid[i, 1], 'with shrinkage', grid[i, 2], 'calculated.',
+                  'Out of', grid[nrow(grid), 1], 'trees.'))   
+    
   }
   
   if(plot == TRUE){
-    #Plotting Errors Train Error vs. Cross Validation
-    matplot(1:nrow(grid), cbind(trainError, oobError, aucError), pch = 19, col = c('red', 'blue', 'green'), type = 'b', ylab = 'Mean Squared Error(Blue, Red) + AUC(Green)', xlab = 'Tree Depth + shrinkage')
-    legend('topright', legend = c('Train', 'OOB','AUC'), pch = 19, col = c('red', 'blue', 'green'))      
+    #Plotting Errors Train Error vs. Validation
+    par(mfrow=c(2, 1))
+    matplot(1:nrow(grid), cbind(trainError, oobError), pch = 19, col = c('red', 'blue'), type = 'b', ylab = 'Mean Squared Error', xlab = 'Tree Depth + shrinkage')
+    legend('topright', legend = c('Train', 'OOB'), pch = 19, col = c('red', 'blue'))      
+    
+    matplot(1:nrow(grid), aucError, pch = 19, col = 'green', type = 'b', ylab = 'AUC', xlab = 'Tree Depth + shrinkage')
+    legend('topright', legend = 'AUC', pch = 19, col = 'green')    
   } 
   
-  optimalIndex <- which.min(aucError)
+  optimalIndex <- which.min(oobError)
   
   #Return the best values found on the grid
   return(grid[optimalIndex, ])

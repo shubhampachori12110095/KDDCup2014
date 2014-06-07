@@ -156,14 +156,15 @@ correlationsResourcesList <- correlationsAndTest(resources[indicesTrainProjects[
 #####################################################################
 #Cross-validation Projects Model
 #GBM
-trainIndicesy <- sample(1:length(y), 50000) # Number of samples considered for prototyping / best parameter selection, it has to be greater than 500 the sampling size, otherwise it will throw an error saying that more data is required 
+nTrainingSamples <- 40000
+trainIndicesy <- sample(1:length(y), nTrainingSamples) # Number of samples considered for prototyping / best parameter selection, it has to be greater than 500 the sampling size, otherwise it will throw an error saying that more data is required 
 #trainIndices <- sample(1:length(y), length(y)) # Use this line to use the complete dataset and shuffle the data
 
 indicesProjectsShuffled <- indicesTrainProjects[trainIndicesy]
 indicesEssaysShuffled <- indicesTrainEssays[trainIndicesy]
   
 #Setting cross validation parameters
-amountOfTrees <- 60000
+amountOfTrees <- 50000
 NumberofCVFolds <- 5
 cores <- NumberofCVFolds
 
@@ -171,10 +172,11 @@ if (NumberofCVFolds > 3){
   cores <- detectCores() - 1
 }
 
-treeDepth <- 6 #interaction.depth X-validation
+treeDepth <- 7 #interaction.depth validation
+
 #sample indices
 set.seed(102)
-sampleIndices <- sort(sample(1:nrow(projects[trainIndices, ]), floor(nrow(projects[trainIndices, ]) * 0.8))) # these indices are useful for validation
+sampleIndices <- sort(sample(1:length(indicesProjectsShuffled), floor(length(indicesProjectsShuffled) * 0.8))) # these indices are useful for validation
 
 #project variables' indices
 variablesIndices <- c(8, 10, seq(13, 34)) # with all of the valid variables
@@ -183,7 +185,7 @@ variablesIndices <- c(8, 10, seq(13, 34)) # with all of the valid variables
 gridCrossValidationGBM <- gridCrossValidationGBM(xGen = cbind(projects[indicesProjectsShuffled, variablesIndices], essaysLength[indicesEssaysShuffled]), 
                                                  yGen = y[trainIndicesy], sampleIndices, amountOfTrees,
                                                  NumberofCVFolds, cores,
-                                                 seq(1, treeDepth), c(0.001, 0.003, 0.01))
+                                                 seq(1, treeDepth, 2), c(0.001, 0.003, 0.01))
 
 #optimal hipeparameters for tree depth and for shrinkage
 optimalTreeDepth <- gridCrossValidationGBM[1]
