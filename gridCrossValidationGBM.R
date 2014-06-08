@@ -13,6 +13,7 @@ gridCrossValidationGBM <- function(xGen, yGen, subset, numberOfTrees,
   oobError <- rep(NA, nrow(grid))
   #cvError <- rep(NA, nrow(grid))
   aucError <- rep(NA, nrow(grid))
+  bestTreeVector <- rep(NA, nrow(grid))
     
   for(i in 1:nrow(grid)){
     model <- gbm.fit(x = xGen[subset, ], y = yGen[subset], 
@@ -30,7 +31,7 @@ gridCrossValidationGBM <- function(xGen, yGen, subset, numberOfTrees,
     
     #auc Error
     predictionGBM <- predict(model, newdata = xGen[-subset, ], 
-                             n.trees = abs(model$n.trees - which.min(model$valid.error)), 
+                             n.trees = which.min(model$valid.error), 
                              single.tree = TRUE, type = 'response')
     
     #predictionGBM <- ifelse(distributionSelected == 'bernoulli', 
@@ -38,7 +39,10 @@ gridCrossValidationGBM <- function(xGen, yGen, subset, numberOfTrees,
     
     aucError[i] <- auc(yGen[-subset], predictionGBM)     
     print(paste('Error for tree depth', grid[i, 1], 'with shrinkage', grid[i, 2], 'calculated.',
-                  'Out of', grid[nrow(grid), 1], 'trees.'))   
+                  'Out of', grid[nrow(grid), 1], 'trees.', 'AUC of', aucError[i]))    
+    
+    #best tree
+    bestTreeVector[i] <- gbm.perf(model, plot.it = FALSE, method = 'OOB')  
     
   }
   
@@ -53,7 +57,8 @@ gridCrossValidationGBM <- function(xGen, yGen, subset, numberOfTrees,
   } 
   
   optimalIndex <- which.min(oobError)
+  bestTree <- bestTreeVector[optimalIndex]
   
   #Return the best values found on the grid
-  return(grid[optimalIndex, ])
+  return(c(grid[optimalIndex, ], ))
 }

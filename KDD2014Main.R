@@ -164,7 +164,7 @@ indicesProjectsShuffled <- indicesTrainProjects[trainIndicesy]
 indicesEssaysShuffled <- indicesTrainEssays[trainIndicesy]
   
 #Setting cross validation parameters
-amountOfTrees <- 50000
+amountOfTrees <- 30000
 NumberofCVFolds <- 5
 cores <- NumberofCVFolds
 
@@ -190,6 +190,7 @@ gridCrossValidationGBM <- gridCrossValidationGBM(xGen = cbind(projects[indicesPr
 #optimal hipeparameters for tree depth and for shrinkage
 optimalTreeDepth <- gridCrossValidationGBM[1]
 optimalShrinkage <- gridCrossValidationGBM[2]
+bestTree <- gridCrossValidationGBM[3]
 
 #Use best hiperparameters
 trainIndices <- sample(1:length(y), length(y)) # Use this line to use the complete dataset and shuffle the data
@@ -210,7 +211,7 @@ print(best.iter)
 
 #Prediction
 predictionGBM <- predict(GBMModel, newdata = cbind(projects[indicesTestProjects, variablesIndices], essaysLength[indicesTestEssays]) 
-                         n.trees = abs(model$n.trees - which.min(model$valid.error)), 
+                         n.trees = which.min(model$valid.error), 
                          single.tree = TRUE)
 
 
