@@ -7,6 +7,7 @@
 rm(list=ls(all=TRUE))
 
 #Load/install libraries
+require('plyr')
 require('tm')
 require('psych')
 require('Matrix')
@@ -83,26 +84,16 @@ donations <- read.csv(paste0(dataDirectory, 'donations.csv'), header = TRUE, str
 #Template
 submissionTemplate <- read.csv(paste0(dataDirectory, 'sampleSubmission.csv'), header = TRUE, stringsAsFactors = FALSE, na.strings=c("", "NA", "NULL"))
 
-################################################################
-#Preprocessing
-projects <- transform(projects, school_city = as.factor(school_city), school_state = as.factor(school_state),
-                      school_metro = as.factor(school_metro), school_charter = as.factor(school_charter), 
-                      school_magnet = as.factor(school_magnet), school_year_round = as.factor(school_year_round), 
-                      school_nlns = as.factor(school_nlns), school_kipp = as.factor(school_kipp), 
-                      school_charter_ready_promise = as.factor(school_charter_ready_promise), 
-                      teacher_prefix = as.factor(teacher_prefix), teacher_teach_for_america = as.factor(teacher_teach_for_america),
-                      teacher_ny_teaching_fellow = as.factor(teacher_ny_teaching_fellow), primary_focus_subject = as.factor(primary_focus_subject),
-                      primary_focus_area = as.factor(primary_focus_area), secondary_focus_subject = as.factor(secondary_focus_subject),
-                      secondary_focus_area = as.factor(secondary_focus_area), resource_type = as.factor(resource_type),
-                      poverty_level = as.factor(poverty_level), grade_level = as.factor(grade_level),
-                      fulfillment_labor_materials = as.factor(fulfillment_labor_materials),
-                      eligible_double_your_impact_match = as.factor(eligible_double_your_impact_match), eligible_almost_home_match = as.factor(eligible_almost_home_match),
-                      date_posted = as.Date(date_posted, format = '%Y-%m-%d')
-                      )
+#Extra Data
+zip2cbsaNames <- names(read.table(paste0(dataDirectory, 'zip07_cbsa06.txt'), header = TRUE,
+                                  stringsAsFactors = FALSE, sep = ',', colClasses = "character",
+                                  nrows = 100, na.strings=c("", "NA", "NULL")))
 
-resources <- transform(resources, project_resource_type = as.factor(project_resource_type), 
-                       vendorid = as.factor(vendorid)
-                       )
+zip2cbsa <- read.table(paste0(dataDirectory, 'zip07_cbsa06.txt'), header = TRUE,
+                       stringsAsFactors = FALSE, sep = ',', colClasses = "character",
+                       na.strings=c("", "NA", "NULL"), col.names = zip2cbsaNames)
+
+################################################################
 #Outcomes to predict
 y <- as.factor(outcomes$is_exciting)
 save(y, file = 'y.RData')
@@ -129,6 +120,56 @@ save(indicesTestResources, file = 'indicesTestResources.RData')
 indicesTestEssays <- match(submissionTemplate$projectid, essays$projectid)
 save(indicesTestEssays, file = 'indicesTestEssays.RData')
 
+#Additional Feature Engineering
+projectZipIndeces <- match(projects$school_zip, zip2cbsa$ZIP5)
+#WARNING
+#These two lines remove NAs in the indices but replace the indices with partial matches
+#--------------------------------------------------------------------------------------
+projectZipIndecesPartial <- charmatch(projects$school_zip[is.na(projectZipIndeces)], zip2cbsa$ZIP5)
+projectZipIndeces[is.na(projectZipIndeces)] <- projectZipIndecesPartial
+#--------------------------------------------------------------------------------------
+projectsCBSAandCSA <- cbind(zip2cbsa$CBSA.CODE[projectZipIndeces], zip2cbsa$CSA.CODE[projectZipIndeces])
+save(projectsCBSAandCSA, file = 'projectsCBSAandCSA.RData')
+
+#resources' features onto the projects data
+#WARNING
+#These four lines remove NAs in the indices but replace the indices with partial matches
+#UPDATE, they won't find a partial match
+#--------------------------------------------------------------------------------------
+PartialIndicesTrain <- pmatch(outcomes$projectid[is.na(indicesTrainResources)], resources$projectid)
+indicesTrainResources[is.na(indicesTrainResources)] <- PartialIndicesTrain
+PartialIndicesTest <- pmatch(outcomes$projectid[is.na(indicesTestResources)], resources$projectid)
+indicesTestResources[is.na(indicesTestResources)] <- PartialIndicesTest
+#--------------------------------------------------------------------------------------
+#Resources Train
+resourcesOnProjectsTrain <- resources[indicesTrainResources, c('vendorid', 'project_resource_type', 
+                                                                 'item_unit_price', 'item_quantity')]
+save(resourcesOnProjectsTrain, file = 'resourcesOnProjectsTrain.RData')
+#Resources Test
+resourcesOnProjectsTest <- resources[indicesTestResources, c('vendorid', 'project_resource_type', 
+                                                               'item_unit_price', 'item_quantity')]
+save(resourcesOnProjectsTest, file = 'resourcesOnProjectsTest.RData')
+
+#Preprocessing
+projects <- transform(projects, school_city = as.factor(school_city), school_state = as.factor(school_state),
+                      school_metro = as.factor(school_metro), school_charter = as.factor(school_charter), 
+                      school_magnet = as.factor(school_magnet), school_year_round = as.factor(school_year_round), 
+                      school_nlns = as.factor(school_nlns), school_kipp = as.factor(school_kipp), 
+                      school_charter_ready_promise = as.factor(school_charter_ready_promise), 
+                      teacher_prefix = as.factor(teacher_prefix), teacher_teach_for_america = as.factor(teacher_teach_for_america),
+                      teacher_ny_teaching_fellow = as.factor(teacher_ny_teaching_fellow), primary_focus_subject = as.factor(primary_focus_subject),
+                      primary_focus_area = as.factor(primary_focus_area), secondary_focus_subject = as.factor(secondary_focus_subject),
+                      secondary_focus_area = as.factor(secondary_focus_area), resource_type = as.factor(resource_type),
+                      poverty_level = as.factor(poverty_level), grade_level = as.factor(grade_level),
+                      fulfillment_labor_materials = as.factor(fulfillment_labor_materials),
+                      eligible_double_your_impact_match = as.factor(eligible_double_your_impact_match), eligible_almost_home_match = as.factor(eligible_almost_home_match),
+                      date_posted = as.Date(date_posted, format = '%Y-%m-%d')
+                      )
+
+resources <- transform(resources, project_resource_type = as.factor(project_resource_type), 
+                       vendorid = as.factor(vendorid)
+                       )
+
 
 #Merge
 train <- 
@@ -154,7 +195,7 @@ correlationsProjectsList <- correlationsAndTest(projects[indicesTrainProjects[1:
 correlationsResourcesList <- correlationsAndTest(resources[indicesTrainProjects[1:rowProjects], c(30, 31, 32)], y[1:rowProjects])
 
 #####################################################################
-#Cross-validation Projects Model
+#Simple Validation Projects Model
 #GBM
 nTrainingSamples <- 40000
 trainIndicesy <- sample(1:length(y), nTrainingSamples) # Number of samples considered for prototyping / best parameter selection, it has to be greater than 500 the sampling size, otherwise it will throw an error saying that more data is required 
@@ -182,15 +223,15 @@ sampleIndices <- sort(sample(1:length(indicesProjectsShuffled), floor(length(ind
 variablesIndices <- c(8, 10, seq(13, 34)) # with all of the valid variables
   
 ##grid cross validation using OOB Error
-gridCrossValidationGBM <- gridCrossValidationGBM(xGen = cbind(projects[indicesProjectsShuffled, variablesIndices], essaysLength[indicesEssaysShuffled]), 
+OptimalValidationGBMValues <- gridCrossValidationGBM(xGen = cbind(projects[indicesProjectsShuffled, variablesIndices], essaysLength[indicesEssaysShuffled]), 
                                                  yGen = y[trainIndicesy], sampleIndices, amountOfTrees,
                                                  NumberofCVFolds, cores,
-                                                 seq(1, treeDepth, 2), c(0.001, 0.003, 0.01))
+                                                 seq(1, treeDepth, 2), c(0.001, 0.003))
 
 #optimal hipeparameters for tree depth and for shrinkage
-optimalTreeDepth <- gridCrossValidationGBM[1]
-optimalShrinkage <- gridCrossValidationGBM[2]
-bestTree <- gridCrossValidationGBM[3]
+optimalTreeDepth <- OptimalValidationGBMValues[1]
+optimalShrinkage <- OptimalValidationGBMValues[2]
+bestTree <- OptimalValidationGBMValues[3]
 
 #Use best hiperparameters
 trainIndices <- sample(1:length(y), length(y)) # Use this line to use the complete dataset and shuffle the data
