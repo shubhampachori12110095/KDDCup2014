@@ -3,6 +3,10 @@ gridCrossValidationGBM <- function(xGen, yGen, subset, numberOfTrees,
                                    OOBPercentage = 0.8, 
                                    plot = TRUE, distributionSelected = 'bernoulli'){
   
+  #libraries
+  require('Metrics')
+  require('gbm')
+    
   #Transform factor Outcomes to 1-0 outcomes
   yGen <- ifelse(yGen == 't', 1, 0)
     
@@ -22,8 +26,7 @@ gridCrossValidationGBM <- function(xGen, yGen, subset, numberOfTrees,
                      verbose = TRUE, distribution = distributionSelected,
                      nTrain = floor(length(subset) * OOBPercentage))
     
-    summary(model)
-    
+    print(gbm.perf(model, oobag.curve = TRUE, method = 'OOB'))
     
     trainError[i] <- min(model$train.error)
     oobError[i] <- min(model$valid.error)
@@ -42,7 +45,7 @@ gridCrossValidationGBM <- function(xGen, yGen, subset, numberOfTrees,
                   'Out of', grid[nrow(grid), 1], 'trees.', 'AUC of', aucError[i]))    
     
     #best tree
-    bestTreeVector[i] <- gbm.perf(model, plot.it = FALSE, method = 'OOB')  
+    bestTreeVector[i] <- which.min(model$valid.error)
     
   }
   
@@ -60,5 +63,5 @@ gridCrossValidationGBM <- function(xGen, yGen, subset, numberOfTrees,
   bestTree <- bestTreeVector[optimalIndex]
   
   #Return the best values found on the grid
-  return(c(grid[optimalIndex, ], ))
+  return(c(grid[optimalIndex, ], bestTree))
 }
