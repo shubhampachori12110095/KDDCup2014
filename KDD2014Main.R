@@ -12,6 +12,7 @@ require('tm')
 require('psych')
 require('Matrix')
 require('glmnet')
+require('leaps')
 require('gbm')
 require('ggplot2')
 require('Metrics')
@@ -125,7 +126,7 @@ projectZipIndeces <- match(projects$school_zip, zip2cbsa$ZIP5)
 #WARNING
 #These two lines remove NAs in the indices but replace the indices with partial matches
 #--------------------------------------------------------------------------------------
-projectZipIndecesPartial <- charmatch(projects$school_zip[is.na(projectZipIndeces)], zip2cbsa$ZIP5)
+projectZipIndecesPartial <- pmatch(projects$school_zip[is.na(projectZipIndeces)], zip2cbsa$ZIP5)
 projectZipIndeces[is.na(projectZipIndeces)] <- projectZipIndecesPartial
 #--------------------------------------------------------------------------------------
 projectsCBSAandCSA <- cbind(zip2cbsa$CBSA.CODE[projectZipIndeces], zip2cbsa$CSA.CODE[projectZipIndeces])
@@ -173,8 +174,13 @@ resourcesOnProjectsTest <- transform(resourcesOnProjectsTest, vendorid = as.fact
                                      project_resource_type = as.factor(project_resource_type)
 )
                        
-projectsCBSAandCSA <- as.data.frame(projectsCBSAandCSA) #they are transformed to factors automatically because the default behaivor for characters is strings as factors
+projectsCBSAandCSA <- as.data.frame(projectsCBSAandCSA, stringsAsFactors = FALSE) #they are transformed to factors automatically because the default behaivor for characters is strings as factors
 names(projectsCBSAandCSA) <- c('CBSA', 'CSA')
+projectsCBSAandCSA[is.na(projectsCBSAandCSA[ ,'CBSA']), 'CBSA'] <- 'rural'
+projectsCBSAandCSA[is.na(projectsCBSAandCSA[ ,'CSA']), 'CSA'] <- 'rural'
+projectsCBSAandCSA <- transform(projectsCBSAandCSA, CBSA = as.factor(CBSA), 
+                                      CSA = as.factor(CSA))
+
 #################################################################
 #EDA
 #Unique Samples
@@ -193,6 +199,70 @@ correlationsProjectsList <- correlationsAndTest(projects[indicesTrainProjects[1:
 correlationsResourcesList <- correlationsAndTest(resources[indicesTrainProjects[1:rowProjects], c(30, 31, 32)], y[1:rowProjects])
 
 #####################################################################
+#Predictors Selection
+#NA omit, regsubsets is sensitive to NAs
+noNAIndices <- which(apply(is.na(projects[indicesTrainProjects, ]), 1, sum) == 0)
+#projectsNoNAs  <- na.omit(projects[indicesTrainProjects, ])
+
+#project variables' indices in projects
+variablesIndicesFull <- c(8, 10, seq(13, 34)) # with all of the valid variables
+#resourcesIndicesFull <- c(2, 3)
+
+#sample data
+nTrainingSamples <- 150000
+trainIndicesy <- sample(1:length(y[noNAIndices]), nTrainingSamples) # Number of samples considered for prototyping / best parameter selection, it has to be greater than 500 the sampling size, otherwise it will throw an error saying that more data is required 
+#trainIndicesy <- sample(1:y[noNAIndices], length(y[noNAIndices])) # Use this line to use the complete dataset and shuffle the data
+
+#indicesProjectsShuffled <- indicesTrainProjects[indicesValidTrain][trainIndicesy]
+#indicesEssaysShuffled <- indicesTrainEssays[trainIndicesy]
+#indicesResourcesShuffled <- indicesTrainResources[trainIndicesy]
+
+with(na.omit(projects[indicesTrainProjects, ])[ , variablesIndicesFull], 
+     sum(is.na(school_metro)))
+
+#y transform to 1-0 probabilities
+yGen <- ifelse(y == 't', 1, 0)
+
+#Forward Stepwise Selection
+#projectsFit <- regsubsets(yGen ~ . , 
+#                          data = cbind(na.omit(projects[indicesTrainProjects, ])[trainIndicesy , variablesIndicesFull], 
+#                                       yGen[noNAIndices[trainIndicesy]]),
+#                          method = "forward", na.action="na.exclude")
+
+#projectsFit2 <- glmulti(yGen ~ . , 
+#                       data = cbind(na.omit(projects[indicesTrainProjects, ])[trainIndicesy , variablesIndicesFull], 
+#                                    yGen[noNAIndices[trainIndicesy]]),
+#                       method = "g")
+
+#projectsFit3 <- glmnet(x = as.matrix(na.omit(projects[indicesTrainProjects, ])[trainIndicesy , variablesIndicesFull]),
+#                       y = yGen[noNAIndices[trainIndicesy]], family = 'binomial')
+
+projectsFit4 <- gbm.fit(x = cbind(na.omit(projects[indicesTrainProjects, ])[trainIndicesy , variablesIndicesFull], essaysLength[indicesTrainEssays[noNAIndices]][trainIndicesy], projectsCBSAandCSA[indicesTrainEssays[noNAIndices], ][trainIndicesy, ]),
+                       y = yGen[noNAIndices[trainIndicesy]],  n.trees = 2500, interaction.depth = 4,
+                       shrinkage = 0.001, verbose = TRUE, distribution = 'bernoulli', 
+                       bag.fraction = 0.7, nTrain = floor(nTrainingSamples * 0.7))
+
+projectsFit5 <- gbm.fit(x = cbind(na.omit(projects[indicesTrainProjects, ])[trainIndicesy , variablesIndicesFull], essaysLength[indicesTrainEssays[noNAIndices]][trainIndicesy]),
+                        y = yGen[noNAIndices[trainIndicesy]],  n.trees = 2500, interaction.depth = 4,
+                        shrinkage = 0.001, verbose = TRUE, distribution = 'bernoulli', 
+                        bag.fraction = 0.7, nTrain = floor(nTrainingSamples * 0.7))
+
+predict4 <- predict.gbm(projectsFit4, newdata = cbind(na.omit(projects[indicesTrainProjects, ])[-trainIndicesy , variablesIndicesFull], essaysLength[indicesTrainEssays[noNAIndices]][-trainIndicesy], projectsCBSAandCSA[indicesTrainEssays[noNAIndices], ][-trainIndicesy, ]),
+                   n.trees = which.min(projectsFit4$valid.error), type = 'response', single.tree = TRUE)
+print(paste('AUC error with CBSA of:'auc(yGen[noNAIndices[-trainIndicesy]], predict4)))
+predict5 <- predict.gbm(projectsFit5, newdata = cbind(na.omit(projects[indicesTrainProjects, ])[-trainIndicesy , variablesIndicesFull], essaysLength[indicesTrainEssays[noNAIndices]][-trainIndicesy]),
+                        n.trees = which.min(projectsFit5$valid.error), type = 'response', single.tree = TRUE)
+print(paste('AUC error without CBSA of:', auc(yGen[noNAIndices[-trainIndicesy]], predict5)))
+print(paste('OOB Error with CBSA', min(projectsFit4$valid.error)))
+print(paste('OOB Error without CBSA', min(projectsFit5$valid.error)))
+                        
+summary(projectsFit4)
+
+bestTree <- gbm.perf(projectsFit4, method = 'OOB')
+plot(projectsFit4, type = 'response', n.trees = bestTree)
+plot(projectsFit, scale="Cp")
+
+#####################################################################
 #Simple Validation Projects Model
 #GBM
 nTrainingSamples <- 50000
@@ -203,9 +273,8 @@ indicesProjectsShuffled <- indicesTrainProjects[trainIndicesy]
 indicesEssaysShuffled <- indicesTrainEssays[trainIndicesy]
 indicesResourcesShuffled <- indicesTrainResources[trainIndicesy]
 
-  
 #Setting cross validation parameters
-amountOfTrees <- 20000
+amountOfTrees <- 5000
 NumberofCVFolds <- 5
 cores <- NumberofCVFolds
 
@@ -218,9 +287,6 @@ treeDepth <- 7 #interaction.depth validation
 #sample indices
 set.seed(102)
 sampleIndices <- sort(sample(1:length(indicesProjectsShuffled), floor(length(indicesProjectsShuffled) * 0.8))) # these indices are useful for validation
-
-#project variables' indices
-variablesIndices <- c(8, 10, seq(13, 34)) # with all of the valid variables
   
 ##grid cross validation using OOB Error
 OptimalValidationGBMValues <- gridCrossValidationGBM(xGen = projects[indicesProjectsShuffled, variablesIndices], 
@@ -288,8 +354,8 @@ predictionGBM <- predict(GBMModel, newdata = cbind(projects[indicesTestProjects,
 predictionGBMOverloaded <- predict(GBMModel, newdata = cbind(projects[indicesTestProjects, variablesIndices], 
                                                              essaysLength[indicesTestEssays], 
                                                              projectsCBSAandCSA[indicesTestProjects, ]),
-                                   n.trees = bestTree + 2000, single.tree = TRUE, type = 'response')
+                                   n.trees = bestTree + 200, single.tree = TRUE, type = 'response')
 
 #Save .csv file 
 submissionTemplate$is_exciting <- predictionGBM
-write.csv(submissionTemplate, file = "predictionI.csv", row.names = FALSE, quote = FALSE)
+write.csv(submissionTemplate, file = "predictionV.csv", row.names = FALSE, quote = FALSE)
