@@ -209,7 +209,7 @@ variablesIndicesFull <- c(8, 10, seq(13, 34)) # with all of the valid variables
 #resourcesIndicesFull <- c(2, 3)
 
 #sample data
-nTrainingSamples <- 150000
+nTrainingSamples <- 240210 #this is just the max number of samples the auc function can handle
 trainIndicesy <- sample(1:length(y[noNAIndices]), nTrainingSamples) # Number of samples considered for prototyping / best parameter selection, it has to be greater than 500 the sampling size, otherwise it will throw an error saying that more data is required 
 #trainIndicesy <- sample(1:y[noNAIndices], length(y[noNAIndices])) # Use this line to use the complete dataset and shuffle the data
 
@@ -239,28 +239,40 @@ yGen <- ifelse(y == 't', 1, 0)
 
 projectsFit4 <- gbm.fit(x = cbind(na.omit(projects[indicesTrainProjects, ])[trainIndicesy , variablesIndicesFull], essaysLength[indicesTrainEssays[noNAIndices]][trainIndicesy], projectsCBSAandCSA[indicesTrainEssays[noNAIndices], ][trainIndicesy, ]),
                        y = yGen[noNAIndices[trainIndicesy]],  n.trees = 2500, interaction.depth = 4,
-                       shrinkage = 0.001, verbose = TRUE, distribution = 'bernoulli', 
+                       shrinkage = 0.001, verbose = TRUE, distribution = 'adaboost', 
                        bag.fraction = 0.7, nTrain = floor(nTrainingSamples * 0.7))
 
 projectsFit5 <- gbm.fit(x = cbind(na.omit(projects[indicesTrainProjects, ])[trainIndicesy , variablesIndicesFull], essaysLength[indicesTrainEssays[noNAIndices]][trainIndicesy]),
                         y = yGen[noNAIndices[trainIndicesy]],  n.trees = 2500, interaction.depth = 4,
-                        shrinkage = 0.001, verbose = TRUE, distribution = 'bernoulli', 
+                        shrinkage = 0.001, verbose = TRUE, distribution = 'adaboost', 
                         bag.fraction = 0.7, nTrain = floor(nTrainingSamples * 0.7))
 
 predict4 <- predict.gbm(projectsFit4, newdata = cbind(na.omit(projects[indicesTrainProjects, ])[-trainIndicesy , variablesIndicesFull], essaysLength[indicesTrainEssays[noNAIndices]][-trainIndicesy], projectsCBSAandCSA[indicesTrainEssays[noNAIndices], ][-trainIndicesy, ]),
                    n.trees = which.min(projectsFit4$valid.error), type = 'response', single.tree = TRUE)
-print(paste('AUC error with CBSA of:'auc(yGen[noNAIndices[-trainIndicesy]], predict4)))
+print(paste('AUC error with CBSA of:', auc(yGen[noNAIndices[-trainIndicesy]][1:100000], predict4[1:100000])))
 predict5 <- predict.gbm(projectsFit5, newdata = cbind(na.omit(projects[indicesTrainProjects, ])[-trainIndicesy , variablesIndicesFull], essaysLength[indicesTrainEssays[noNAIndices]][-trainIndicesy]),
                         n.trees = which.min(projectsFit5$valid.error), type = 'response', single.tree = TRUE)
-print(paste('AUC error without CBSA of:', auc(yGen[noNAIndices[-trainIndicesy]], predict5)))
+print(paste('AUC error without CBSA of:', auc(yGen[noNAIndices[-trainIndicesy]][1:100000], predict5[1:100000])))
 print(paste('OOB Error with CBSA', min(projectsFit4$valid.error)))
 print(paste('OOB Error without CBSA', min(projectsFit5$valid.error)))
-                        
-summary(projectsFit4)
 
-bestTree <- gbm.perf(projectsFit4, method = 'OOB')
-plot(projectsFit4, type = 'response', n.trees = bestTree)
-plot(projectsFit, scale="Cp")
+sum4 <- summary(projectsFit4)
+sum5 <- summary(projectsFit5)
+
+bestTree4 <- gbm.perf(projectsFit4, method = 'OOB')
+gbm.perf(projectsFit4, method = 'OOB', oobag.curve = TRUE)
+bestTree5 <- gbm.perf(projectsFit5, method = 'OOB')
+gbm.perf(projectsFit5, method = 'OOB', oobag.curve = TRUE)
+
+plot(projectsFit4, type = 'response', n.trees = bestTree4)
+plot(projectsFit5, type = 'response', n.trees = bestTree5)
+
+#best predictors with CBSA
+variablesIndices4 <- as.character(sum4$var[sum4$rel.inf > 0.5])
+projectPredictorsCBSA <- na.omit(match(variablesIndices4, names(projects)))
+#best predictors without CBSA nor CSA
+variablesIndices5 <- as.character(sum4$var[sum4$rel.inf > 0.5])
+projectPredictorsNOCBSA <- na.omit(match(variablesIndices5, names(projects)))
 
 #####################################################################
 #Simple Validation Projects Model
@@ -276,11 +288,6 @@ indicesResourcesShuffled <- indicesTrainResources[trainIndicesy]
 #Setting cross validation parameters
 amountOfTrees <- 5000
 NumberofCVFolds <- 5
-cores <- NumberofCVFolds
-
-if (NumberofCVFolds > 3){
-  cores <- detectCores() - 1
-}
 
 treeDepth <- 7 #interaction.depth validation
 
