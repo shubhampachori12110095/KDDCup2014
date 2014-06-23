@@ -158,8 +158,11 @@ save(resourcesOnProjectsTest, file = 'resourcesOnProjectsTest.RData')
 projects$YearMonth <- strftime(projects$date_posted, format = '%Y-%m')
 #Aggregate occurrences to create a monthly frecuence
 positiveFrecuencies <- ddply(projects[indicesTrainProjects[y == 't'], ], .(YearMonth), nrow)
+totalFrecuencies <- ddply(projects[indicesTrainProjects, ], .(YearMonth), nrow)
 names(positiveFrecuencies) <- c('YearMonth', 'ExcitingProjects')
+names(totalFrecuencies) <- c('YearMonth', 'TotalProjects')
 ggplot(data = positiveFrecuencies, aes(x = YearMonth, y = ExcitingProjects, group = 1)) +  geom_line() +  geom_point()
+ggplot(data = totalFrecuencies, aes(x = YearMonth, y = TotalProjects, group = 1)) +  geom_line() +  geom_point()
 
 # from 2010 to Dec 2013 as a time series object
 myts <- ts(positiveFrecuencies[,2], start=c(2010, 4), end=c(2013, 12), frequency = 12)
@@ -175,7 +178,9 @@ seasonplot(myts)
 #fit <- ets(myts)
 # Automated forecasting using an ARIMA model
 fit <- auto.arima(myts)
-plot(forecast(fit, 5))
+plot(forecast(fit, 30))
+plot(BackCast(fit, 30))
+
 
 #-------------------------
 #Preprocessing
