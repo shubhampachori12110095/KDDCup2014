@@ -166,22 +166,60 @@ ggplot(data = totalFrecuencies, aes(x = YearMonth, y = TotalProjects, group = 1)
 
 # from 2010 to Dec 2013 as a time series object
 myts <- ts(positiveFrecuencies[,2], start=c(2010, 4), end=c(2013, 12), frequency = 12)
+#from 2002 to Dec 2013 all training dataa as a time series object
+mytsAll <- ts(totalFrecuencies[,2], start=c(2002, 9), end=c(2013, 12), frequency = 12)
+
 # plot series, ggplot above is nicer
 plot(myts)
+plot(mytsAll)
 # Seasonal decompostion
-fit <- stl(myts, s.window="period")
-plot(fit)
+plot(stl(myts, s.window="period"))
+plot(stl(mytsAll, s.window="period"))
 # additional plots
 monthplot(myts)
+monthplot(mytsAll)
 seasonplot(myts) 
+seasonplot(mytsAll) 
+
 # Automated forecasting using an exponential model
 #fit <- ets(myts)
 # Automated forecasting using an ARIMA model
 fit <- auto.arima(myts)
-plot(forecast(fit, 30))
-plot(BackCast(fit, 30))
+fitFull <- auto.arima(mytsAll)
 
+modelForecast <- forecast(fit, 5)
+plot(modelForecast)
+modelForecastFull <- forecast(fitFull, 5)
+plot(modelForecastFull)
 
+#Performing a Backcast to generate simulated probabilities before May 2010 where there are no exciting projects
+# Reverse time
+revmyts <- ts(rev(myts), frequency=12)
+# Backcast
+bc <- forecast(auto.arima(revmyts), abs(length(myts) - length(mytsAll)))
+plot(bc)
+# Reverse time again
+bc$mean <- ts(rev(bc$mean), end=tsp(myts)[1] - 1/12, frequency=12)
+bc$upper <- bc$upper[abs(length(myts) - length(mytsAll)):1,]
+bc$lower <- bc$lower[abs(length(myts) - length(mytsAll)):1,]
+bc$x <- myts
+# Plot result
+plot(bc, xlim=c(tsp(myts)[1]-abs(length(myts) - length(mytsAll))/12, tsp(myts)[2]))
+
+positiveFrecuencies <- c(as.numeric(bc$mean), positiveFrecuencies[,2], as.numeric(modelForecast$mean))
+positiveFrecuencies[positiveFrecuencies<0] <- 0.0001
+totalFrecuencies <- c(totalFrecuencies[,2], as.numeric(modelForecastFull$mean))
+
+positiveProbs <- as.data.frame(cbind(sort(unique(projects$YearMonth)), 
+                                    positiveFrecuencies/totalFrecuencies, 
+                                    positiveFrecuencies, 
+                                    totalFrecuencies))
+
+names(positiveProbs) <- c('YearMonth', 'positiveProb', 'PositiveFreq', 'TotalFreq')
+ggplot(data = positiveProbs, aes(x = YearMonth, y = positiveProb, group = 1)) +  geom_line() +  geom_point()
+
+#CreAte extra columns in projects data; containing: probabilities of being positive, positive frequencies and total frecuencies
+projects <- merge(projects, positiveProbs, by = 'YearMonth')
 #-------------------------
 #Preprocessing
 projects <- transform(projects, school_city = as.factor(school_city), school_state = as.factor(school_state),
