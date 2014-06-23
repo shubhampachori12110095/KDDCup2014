@@ -220,9 +220,10 @@ ggplot(data = positiveProbs, aes(x = YearMonth, y = positiveProb, group = 1)) + 
 
 #CreAte extra columns in projects data; containing: probabilities of being positive, positive frequencies and total frecuencies
 projects <- merge(projects, positiveProbs, by = 'YearMonth')
+save(projects, file = 'projects.RData')
 #-------------------------
 #Preprocessing
-projects <- transform(projects, school_city = as.factor(school_city), school_state = as.factor(school_state),
+projects <- transform(projects, YearMonth = as.factor(YearMonth), school_city = as.factor(school_city), school_state = as.factor(school_state),
                       school_metro = as.factor(school_metro), school_charter = as.factor(school_charter), 
                       school_magnet = as.factor(school_magnet), school_year_round = as.factor(school_year_round), 
                       school_nlns = as.factor(school_nlns), school_kipp = as.factor(school_kipp), 
@@ -234,7 +235,9 @@ projects <- transform(projects, school_city = as.factor(school_city), school_sta
                       poverty_level = as.factor(poverty_level), grade_level = as.factor(grade_level),
                       fulfillment_labor_materials = as.factor(fulfillment_labor_materials),
                       eligible_double_your_impact_match = as.factor(eligible_double_your_impact_match), eligible_almost_home_match = as.factor(eligible_almost_home_match),
-                      date_posted = as.Date(date_posted, format = '%Y-%m-%d')
+                      date_posted = as.Date(date_posted, format = '%Y-%m-%d'), 
+                      positiveProb = as.numeric(positiveProb), PositiveFreq = as.numeric(PositiveFreq), 
+                      TotalFreq = as.numeric(TotalFreq)
                       )
 
 
@@ -276,7 +279,7 @@ noNAIndices <- which(apply(is.na(projects[indicesTrainProjects, ]), 1, sum) == 0
 #projectsNoNAs  <- na.omit(projects[indicesTrainProjects, ])
 
 #project variables' indices in projects
-variablesIndicesFull <- c(8, 10, seq(13, 34)) # with all of the valid variables
+variablesIndicesFull <- c(1, 9, 11, seq(14, 35), seq(37, 39)) # with all of the valid variables
 #resourcesIndicesFull <- c(2, 3)
 
 #sample data
