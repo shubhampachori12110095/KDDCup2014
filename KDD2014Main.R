@@ -206,8 +206,8 @@ bc$x <- myts
 # Plot result
 plot(bc, xlim=c(tsp(myts)[1]-abs(length(myts) - length(mytsAll))/12, tsp(myts)[2]))
 
-positiveFrecuencies <- c(as.numeric(bc$mean), positiveFrecuencies[,2], as.numeric(modelForecast$mean))
-positiveFrecuencies[positiveFrecuencies<0] <- 0.0001
+positiveFrecuencies <- c(rev(as.numeric(bc$mean)), positiveFrecuencies[,2], as.numeric(modelForecast$mean))
+positiveFrecuencies[positiveFrecuencies<0] <- 0
 totalFrecuencies <- c(totalFrecuencies[,2], as.numeric(modelForecastFull$mean))
 
 positiveProbs <- as.data.frame(cbind(sort(unique(projects$YearMonth)), 
