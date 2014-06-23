@@ -1,7 +1,8 @@
 gridCrossValidationGBM <- function(xGen, yGen, subset, numberOfTrees,
                                    xValFolds, coresAmount, treeDepthVector, shrinkageVector,
                                    OOBPercentage = 0.8, 
-                                   plot = TRUE, distributionSelected = 'bernoulli'){
+                                   plot = TRUE, distributionSelected = 'bernoulli',
+                                   singleTreeFraction = 0.7){
   
   #libraries
   require('Metrics')
@@ -24,7 +25,7 @@ gridCrossValidationGBM <- function(xGen, yGen, subset, numberOfTrees,
                      n.trees = numberOfTrees, interaction.depth = grid[i, 1],
                      shrinkage = grid[i, 2], 
                      verbose = TRUE, distribution = distributionSelected,
-                     nTrain = floor(length(subset) * OOBPercentage))
+                     nTrain = floor(length(subset) * OOBPercentage), bag.fraction = singleTreeFraction)
     
     print(gbm.perf(model, oobag.curve = TRUE, method = 'OOB'))
     
@@ -34,8 +35,7 @@ gridCrossValidationGBM <- function(xGen, yGen, subset, numberOfTrees,
     
     #auc Error
     predictionGBM <- predict(model, newdata = xGen[-subset, ], 
-                             n.trees = which.min(model$valid.error), 
-                             single.tree = TRUE, type = 'response')
+                             n.trees = which.min(model$valid.error), type = 'response')
     
     #predictionGBM <- ifelse(distributionSelected == 'bernoulli', 
     #                        break, predictionGBM <- exp(predictionGBM))
