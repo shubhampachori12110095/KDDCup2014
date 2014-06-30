@@ -216,6 +216,7 @@ positiveProbs <- as.data.frame(cbind(sort(unique(projects$YearMonth)),
                                     totalFrecuencies))
 
 names(positiveProbs) <- c('YearMonth', 'positiveProb', 'PositiveFreq', 'TotalFreq')
+positiveProbs$positiveProb[positiveProb<=0] <- 0.00001
 ggplot(data = positiveProbs, aes(x = YearMonth, y = positiveProb, group = 1)) +  geom_line() +  geom_point()
 
 #CreAte extra columns in projects data; containing: probabilities of being positive, positive frequencies and total frecuencies
@@ -279,7 +280,7 @@ noNAIndices <- which(apply(is.na(projects[indicesTrainProjects, ]), 1, sum) == 0
 #projectsNoNAs  <- na.omit(projects[indicesTrainProjects, ])
 
 #project variables' indices in projects
-variablesIndicesFull <- c(1, 9, 11, seq(14, 35), seq(37, 39)) # with all of the valid variables
+variablesIndicesFull <- c(9, 11, seq(14, 35), 37, 39) # with all of the valid variables
 #resourcesIndicesFull <- c(2, 3)
 
 #sample data
@@ -312,23 +313,23 @@ yGen <- ifelse(y == 't', 1, 0)
 #                       y = yGen[noNAIndices[trainIndicesy]], family = 'binomial')
 
 projectsFit4 <- gbm.fit(x = cbind(na.omit(projects[indicesTrainProjects, ])[trainIndicesy , variablesIndicesFull], essaysLength[indicesTrainEssays[noNAIndices]][trainIndicesy], projectsCBSAandCSA[indicesTrainEssays[noNAIndices], ][trainIndicesy, ]),
-                       y = yGen[noNAIndices[trainIndicesy]],  n.trees = 2500, interaction.depth = 4,
+                       y = yGen[noNAIndices[trainIndicesy]],  n.trees = 2500, interaction.depth = 7,
                        shrinkage = 0.001, verbose = TRUE, distribution = 'adaboost', 
                        bag.fraction = 0.7, nTrain = floor(nTrainingSamples * 0.7))
 
 projectsFit5 <- gbm.fit(x = cbind(na.omit(projects[indicesTrainProjects, ])[trainIndicesy , variablesIndicesFull], essaysLength[indicesTrainEssays[noNAIndices]][trainIndicesy]),
-                        y = yGen[noNAIndices[trainIndicesy]],  n.trees = 2500, interaction.depth = 4,
+                        y = yGen[noNAIndices[trainIndicesy]],  n.trees = 2500, interaction.depth = 7,
                         shrinkage = 0.001, verbose = TRUE, distribution = 'adaboost', 
                         bag.fraction = 0.7, nTrain = floor(nTrainingSamples * 0.7))
 
 predict4 <- predict.gbm(projectsFit4, newdata = cbind(na.omit(projects[indicesTrainProjects, ])[-trainIndicesy , variablesIndicesFull], essaysLength[indicesTrainEssays[noNAIndices]][-trainIndicesy], projectsCBSAandCSA[indicesTrainEssays[noNAIndices], ][-trainIndicesy, ]),
-                   n.trees = which.min(projectsFit4$valid.error), type = 'response', single.tree = TRUE)
-print(paste('AUC error with CBSA of:', auc(yGen[noNAIndices[-trainIndicesy]][1:100000], predict4[1:100000])))
+                   n.trees = which.min(projectsFit4$valid.error), type = 'response')
 predict5 <- predict.gbm(projectsFit5, newdata = cbind(na.omit(projects[indicesTrainProjects, ])[-trainIndicesy , variablesIndicesFull], essaysLength[indicesTrainEssays[noNAIndices]][-trainIndicesy]),
-                        n.trees = which.min(projectsFit5$valid.error), type = 'response', single.tree = TRUE)
-print(paste('AUC error without CBSA of:', auc(yGen[noNAIndices[-trainIndicesy]][1:100000], predict5[1:100000])))
-print(paste('OOB Error with CBSA', min(projectsFit4$valid.error)))
-print(paste('OOB Error without CBSA', min(projectsFit5$valid.error)))
+                        n.trees = which.min(projectsFit5$valid.error), type = 'response')
+print(paste('AUC error with CBSAs of:', auc(yGen[noNAIndices[-trainIndicesy]][1:100000], predict4[1:100000])))
+print(paste('AUC error without CBSAs of:', auc(yGen[noNAIndices[-trainIndicesy]][1:100000], predict5[1:100000])))
+print(paste('OOB Error with CBSAs', min(projectsFit4$valid.error)))
+print(paste('OOB Error without CBSAs', min(projectsFit5$valid.error)))
 
 sum4 <- summary(projectsFit4)
 sum5 <- summary(projectsFit5)
@@ -342,10 +343,10 @@ plot(projectsFit4, type = 'response', n.trees = bestTree4)
 plot(projectsFit5, type = 'response', n.trees = bestTree5)
 
 #best predictors with CBSA
-variablesIndices4 <- as.character(sum4$var[sum4$rel.inf > 0.5])
+variablesIndices4 <- as.character(sum4$var[sum4$rel.inf > 0.01])
 projectPredictorsCBSA <- na.omit(match(variablesIndices4, names(projects)))
 #best predictors without CBSA nor CSA
-variablesIndices5 <- as.character(sum4$var[sum4$rel.inf > 0.5])
+variablesIndices5 <- as.character(sum4$var[sum4$rel.inf > 0.01])
 projectPredictorsNOCBSA <- na.omit(match(variablesIndices5, names(projects)))
 projectPredictors <- intersect(projectPredictorsCBSA, projectPredictorsNOCBSA)
 
@@ -363,8 +364,8 @@ print(projectPredictors)
 #sample data
 #Without NAs
 nTrainingSamples <- 100000 #this is just the max number of samples the auc function can handle
-#trainIndicesy <- sample(1:length(y[noNAIndices]), nTrainingSamples) # Number of samples considered for prototyping / best parameter selection, it has to be greater than 500 the sampling size, otherwise it will throw an error saying that more data is required 
-trainIndicesy <- sample(1:length(y[noNAIndices]), length(y[noNAIndices])) # Use this line to use the complete dataset and shuffle the data
+trainIndicesy <- sample(1:length(y[noNAIndices]), nTrainingSamples) # Number of samples considered for prototyping / best parameter selection, it has to be greater than 500 the sampling size, otherwise it will throw an error saying that more data is required 
+#trainIndicesy <- sample(1:length(y[noNAIndices]), length(y[noNAIndices])) # Use this line to use the complete dataset and shuffle the data
 #With NAs
 nTrainingSamples <- 100000
 #trainIndicesy <- sample(1:length(y), nTrainingSamples) # Number of samples considered for prototyping / best parameter selection, it has to be greater than 500 the sampling size, otherwise it will throw an error saying that more data is required 
@@ -385,57 +386,69 @@ NumberofCVFolds <- 5
 treeDepth <- 7 #interaction.depth validation
 
 ##grid cross validation using OOB Error with NAs
-OptimalValidationGBMValues <- gridCrossValidationGBM(xGen = projects[indicesProjectsShuffled, projectPredictors], 
-                                                     yGen = y[trainIndicesy], sampleIndices, amountOfTrees,
-                                                     NumberofCVFolds, cores,
-                                                     seq(3, 5), 0.003)
+#OptimalValidationGBMValues <- gridCrossValidationGBM(xGen = projects[indicesProjectsShuffled, projectPredictors], 
+#                                                     yGen = y[trainIndicesy], sampleIndices, amountOfTrees,
+#                                                     NumberofCVFolds, cores,
+#                                                     distributionSelected = 'adaboost',
+#                                                     seq(1, treeDepth, 3), c(0.001, 0.003))
 
-OptimalValidationGBMValues <- gridCrossValidationGBM(xGen = cbind(projects[indicesProjectsShuffled, projectPredictors], 
+OptimalValidationGBMValues2 <- gridCrossValidationGBM(xGen = cbind(projects[indicesProjectsShuffled, projectPredictors], 
                                                                   essaysLength[indicesEssaysShuffled]), 
                                                      yGen = y[trainIndicesy], sampleIndices, amountOfTrees,
                                                      NumberofCVFolds, cores,
-                                                     seq(3, 5), 0.003)
+                                                     distributionSelected = 'adaboost',
+                                                     seq(1, treeDepth, 3), c(0.001, 0.003))
 
-OptimalValidationGBMValues <- gridCrossValidationGBM(xGen = cbind(projects[indicesProjectsShuffled, projectPredictors],
+OptimalValidationGBMValues3 <- gridCrossValidationGBM(xGen = cbind(projects[indicesProjectsShuffled, projectPredictors],
                                                                   essaysLength[indicesEssaysShuffled], 
                                                                   projectsCBSAandCSA[indicesProjectsShuffled, 'CBSA']), 
                                                      yGen = y[trainIndicesy], sampleIndices, amountOfTrees,
+                                                     distributionSelected = 'adaboost',
                                                      NumberofCVFolds, cores,
-                                                     c(1, 3, 5), c(0.001, 0.003))
+                                                     seq(1, treeDepth, 3), c(0.001, 0.003))
 
-OptimalValidationGBMValues <- gridCrossValidationGBM(xGen = cbind(projects[indicesProjectsShuffled, projectPredictors],
-                                                                  essaysLength[indicesEssaysShuffled], 
-                                                                  projectsCBSAandCSA[indicesProjectsShuffled, 'CBSA'], 
-                                                                  resourcesOnProjectsTrain[indicesResourcesShuffled, ]), 
-                                                     yGen = y[trainIndicesy], sampleIndices, amountOfTrees,
-                                                     NumberofCVFolds, cores,
-                                                     c(1, 3, 5), c(0.001, 0.003))
+#OptimalValidationGBMValues4 <- gridCrossValidationGBM(xGen = cbind(projects[indicesProjectsShuffled, projectPredictors],
+#                                                                  essaysLength[indicesEssaysShuffled], 
+#                                                                  projectsCBSAandCSA[indicesProjectsShuffled, 'CBSA'], 
+#                                                                  resourcesOnProjectsTrain[indicesResourcesShuffled, ]), 
+#                                                     yGen = y[trainIndicesy], sampleIndices, amountOfTrees,
+#                                                     distributionSelected = 'adaboost',
+#                                                     NumberofCVFolds, cores,
+#                                                     seq(1, treeDepth, 3), c(0.001, 0.003))
 
-#optimal hipeparameters for tree depth and for shrinkage with NAs
-optimalTreeDepth <- OptimalValidationGBMValues[1]
-optimalShrinkage <- OptimalValidationGBMValues[2]
-bestTree <- OptimalValidationGBMValues[3]
+#optimal hipeparameters for tree depth and for shrinkage with NAs, without CBSAs
+optimalTreeDepthNoCBSA <- OptimalValidationGBMValues2[1]
+optimalShrinkageNoCBSA <- OptimalValidationGBMValues2[2]
+bestTreeNoCBSA <- OptimalValidationGBMValues2[3]
+
+#optimal hipeparameters for tree depth and for shrinkage with NAs, with CBSAs
+optimalTreeDepth <- OptimalValidationGBMValues3[1]
+optimalShrinkage <- OptimalValidationGBMValues3[2]
+bestTree <- OptimalValidationGBMValues3[3]
+
 
 ##grid cross validation using OOB Error without NAs
-OptimalValidationGBMValues <- gridCrossValidationGBM(xGen = cbind(na.omit(projects[indicesTrainProjects, ])[trainIndicesy , projectPredictors], essaysLength[indicesTrainEssays[noNAIndices]][trainIndicesy], projectsCBSAandCSA[indicesTrainEssays[noNAIndices], ][trainIndicesy, 1]),                                                                   
-                                                     yGen = y[noNAIndices[trainIndicesy]], sampleIndices, amountOfTrees,
-                                                     NumberofCVFolds, cores,
-                                                     c(1, 3, 5), c(0.001, 0.003))
+OptimalValidationGBMValNoNAs <- gridCrossValidationGBM(xGen = cbind(na.omit(projects[indicesTrainProjects, ])[trainIndicesy , projectPredictors], essaysLength[indicesTrainEssays[noNAIndices]][trainIndicesy], projectsCBSAandCSA[indicesTrainEssays[noNAIndices], ][trainIndicesy, 1]),                                                                   
+                                                       yGen = y[noNAIndices[trainIndicesy]], sampleIndices, amountOfTrees,
+                                                       NumberofCVFolds, cores,
+                                                       distributionSelected = 'adaboost',
+                                                       seq(1, treeDepth, 3), c(0.001, 0.003))
 
 #optimal hipeparameters for tree depth and for shrinkage without NAs
-optimalTreeDepthWithNAS <- OptimalValidationGBMValues[1]
-optimalShrinkageWithNAS <- OptimalValidationGBMValues[2]
-bestTreeWithNAS <- OptimalValidationGBMValues[3]
+optimalTreeDepthNoNAS <- OptimalValidationGBMValNoNAs[1]
+optimalShrinkageNoNAS <- OptimalValidationGBMValNoNAs[2]
+bestTreeNoNAS <- OptimalValidationGBMValNoNAs[3]
 
 #--------------------------------------#
 #Model creation
+trainIndicesyNoNA <- sample(1:length(y[noNAIndices]), length(y[noNAIndices])) # Use this line to use the complete dataset and shuffle the data
 
 #Use best hiperparameters
 trainIndicesy <- sample(1:length(y), length(y)) # Use this line to use the complete dataset and shuffle the data
 
 #project variables' indices
 print(projectPredictors)
-variablesIndices <- projectPredictors # with all of the valid variables
+variablesIndices <- projectPredictors # with all of the important variables
 
 indicesProjectsShuffled <- indicesTrainProjects[trainIndicesy]
 indicesEssaysShuffled <- indicesTrainEssays[trainIndicesy]
@@ -450,6 +463,20 @@ GBMModel <- gbm.fit(x = cbind(projects[indicesProjectsShuffled, variablesIndices
                     bag.fraction = 0.7
                     )
 
+GBMModelNoCBSA <- gbm.fit(x = cbind(projects[indicesProjectsShuffled, variablesIndices],
+                              essaysLength[indicesEssaysShuffled]),
+                    y = yGen[trainIndicesy], n.trees = bestTreeNoCBSA, interaction.depth = optimalTreeDepthNoCBSA,
+                    shrinkage = optimalShrinkageNoCBSA, verbose = TRUE, distribution = 'adaboost',
+                    bag.fraction = 0.7
+)
+
+GBMModelNoNAs <- gbm.fit(x = cbind(na.omit(projects[indicesTrainProjects, ])[trainIndicesyNoNA , projectPredictors], essaysLength[indicesTrainEssays[noNAIndices]][trainIndicesyNoNA], projectsCBSAandCSA[indicesTrainEssays[noNAIndices], ][trainIndicesyNoNA, 1]),
+                         y = yGen[noNAIndices[trainIndicesyNoNA]], n.trees = bestTreeNoNAS, 
+                         interaction.depth = optimalTreeDepthNoNAS,
+                         shrinkage = optimalShrinkageNoNAS, verbose = TRUE, distribution = 'adaboost',
+                         bag.fraction = 0.7
+)
+
 summary.gbm(GBMModel)
 plot.gbm(GBMModel)
 pretty.gbm.tree(GBMModel, i.tree = bestTree)
@@ -460,16 +487,20 @@ predictionGBM <- predict(GBMModel, newdata = cbind(projects[indicesTestProjects,
                                                    projectsCBSAandCSA[indicesTestProjects, 'CBSA']), 
                          n.trees = bestTree, type = 'response')
 
+predictionNoCBSAGBM <- predict(GBMModelNoCBSA, newdata = cbind(projects[indicesTestProjects, variablesIndices], 
+                                                   essaysLength[indicesTestEssays]), 
+                         n.trees = bestTreeNoCBSA, type = 'response')
 
-predictionGBMUnderloaded <- predict(GBMModel, newdata = cbind(projects[indicesTestProjects, variablesIndices], 
+
+predictionGBMNoNAs <- predict(GBMModelNoNAs, newdata = cbind(projects[indicesTestProjects, variablesIndices], 
                                                              essaysLength[indicesTestEssays], 
                                                              projectsCBSAandCSA[indicesTestProjects, 'CBSA']),
-                                   n.trees = bestTree - 400, type = 'response')
+                                   n.trees = bestTreeNoNAS , type = 'response')
 
 #Save .csv file 
 submissionTemplate$is_exciting <- predictionGBM
-write.csv(submissionTemplate, file = "predictionX.csv", row.names = FALSE, quote = FALSE)
+write.csv(submissionTemplate, file = "predictionXIII.csv", row.names = FALSE, quote = FALSE)
 
 #Save .csv file 
 submissionTemplate$is_exciting <- predictionGBMUnderloaded
-write.csv(submissionTemplate, file = "predictionIX.csv", row.names = FALSE, quote = FALSE)
+write.csv(submissionTemplate, file = "predictionXIV.csv", row.names = FALSE, quote = FALSE)
