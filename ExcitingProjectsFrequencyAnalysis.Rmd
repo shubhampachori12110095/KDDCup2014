@@ -1,0 +1,14 @@
+*KDD Cup 2014 - Predicting Excitement at DonorsChoose.org
+How Many Exciting Projects are there?
+========================================================
+How many projects are exciting are there? 
+How many projects are exciting?
+What is the likelihood of an exiting project to appear?
+Is the data seasonal? Is there a trend?
+
+There are some of the questions posted by the KDD Cup challenge of this year. I tried to answer them with the help of some visualizations. I hope they help you better understand the problem at hand as they have helped me. Enjoy!
+
+```{r}
+require(ISLR)
+attach(Wage)
+```

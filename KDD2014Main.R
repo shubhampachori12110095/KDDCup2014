@@ -280,7 +280,7 @@ noNAIndices <- which(apply(is.na(projects[indicesTrainProjects, ]), 1, sum) == 0
 #projectsNoNAs  <- na.omit(projects[indicesTrainProjects, ])
 
 #project variables' indices in projects
-variablesIndicesFull <- c(9, 11, seq(14, 35), 37, 39) # with all of the valid variables
+variablesIndicesFull <- c(9, 11, seq(14, 35), 37, 38, 39) # with all of the valid variables
 #resourcesIndicesFull <- c(2, 3)
 
 #sample data
@@ -292,6 +292,7 @@ trainIndicesy <- sample(1:length(y[noNAIndices]), nTrainingSamples) # Number of 
 #indicesEssaysShuffled <- indicesTrainEssays[trainIndicesy]
 #indicesResourcesShuffled <- indicesTrainResources[trainIndicesy]
 
+
 with(na.omit(projects[indicesTrainProjects, ])[ , variablesIndicesFull], 
      sum(is.na(school_metro)))
 
@@ -299,10 +300,10 @@ with(na.omit(projects[indicesTrainProjects, ])[ , variablesIndicesFull],
 yGen <- ifelse(y == 't', 1, 0)
 
 #Forward Stepwise Selection
-#projectsFit <- regsubsets(yGen ~ . , 
-#                          data = cbind(na.omit(projects[indicesTrainProjects, ])[trainIndicesy , variablesIndicesFull], 
-#                                       yGen[noNAIndices[trainIndicesy]]),
-#                          method = "forward", na.action="na.exclude")
+projectsFit <- regsubsets(yGen ~ . , 
+                          data = cbind(na.omit(projects[indicesTrainProjects, ])[trainIndicesy , variablesIndicesFull], 
+                                       yGen[noNAIndices[trainIndicesy]]),
+                          method = "forward", na.action="na.exclude")
 
 #projectsFit2 <- glmulti(yGen ~ . , 
 #                       data = cbind(na.omit(projects[indicesTrainProjects, ])[trainIndicesy , variablesIndicesFull], 
@@ -314,13 +315,13 @@ yGen <- ifelse(y == 't', 1, 0)
 
 projectsFit4 <- gbm.fit(x = cbind(na.omit(projects[indicesTrainProjects, ])[trainIndicesy , variablesIndicesFull], essaysLength[indicesTrainEssays[noNAIndices]][trainIndicesy], projectsCBSAandCSA[indicesTrainEssays[noNAIndices], ][trainIndicesy, ]),
                        y = yGen[noNAIndices[trainIndicesy]],  n.trees = 2500, interaction.depth = 7,
-                       shrinkage = 0.001, verbose = TRUE, distribution = 'adaboost', 
-                       bag.fraction = 0.7, nTrain = floor(nTrainingSamples * 0.7))
+                       shrinkage = 0.001, verbose = TRUE, distribution = 'bernoulli', 
+                       bag.fraction = 0.65, nTrain = floor(nTrainingSamples * 0.7))
 
 projectsFit5 <- gbm.fit(x = cbind(na.omit(projects[indicesTrainProjects, ])[trainIndicesy , variablesIndicesFull], essaysLength[indicesTrainEssays[noNAIndices]][trainIndicesy]),
                         y = yGen[noNAIndices[trainIndicesy]],  n.trees = 2500, interaction.depth = 7,
-                        shrinkage = 0.001, verbose = TRUE, distribution = 'adaboost', 
-                        bag.fraction = 0.7, nTrain = floor(nTrainingSamples * 0.7))
+                        shrinkage = 0.001, verbose = TRUE, distribution = 'bernoulli', 
+                        bag.fraction = 0.65, nTrain = floor(nTrainingSamples * 0.7))
 
 predict4 <- predict.gbm(projectsFit4, newdata = cbind(na.omit(projects[indicesTrainProjects, ])[-trainIndicesy , variablesIndicesFull], essaysLength[indicesTrainEssays[noNAIndices]][-trainIndicesy], projectsCBSAandCSA[indicesTrainEssays[noNAIndices], ][-trainIndicesy, ]),
                    n.trees = which.min(projectsFit4$valid.error), type = 'response')
@@ -396,14 +397,14 @@ OptimalValidationGBMValues2 <- gridCrossValidationGBM(xGen = cbind(projects[indi
                                                                   essaysLength[indicesEssaysShuffled]), 
                                                      yGen = y[trainIndicesy], sampleIndices, amountOfTrees,
                                                      NumberofCVFolds, cores,
-                                                     distributionSelected = 'adaboost',
+                                                     distributionSelected = 'bernoulli',
                                                      seq(1, treeDepth, 3), c(0.001, 0.003))
 
 OptimalValidationGBMValues3 <- gridCrossValidationGBM(xGen = cbind(projects[indicesProjectsShuffled, projectPredictors],
                                                                   essaysLength[indicesEssaysShuffled], 
                                                                   projectsCBSAandCSA[indicesProjectsShuffled, 'CBSA']), 
                                                      yGen = y[trainIndicesy], sampleIndices, amountOfTrees,
-                                                     distributionSelected = 'adaboost',
+                                                     distributionSelected = 'bernoulli',
                                                      NumberofCVFolds, cores,
                                                      seq(1, treeDepth, 3), c(0.001, 0.003))
 
@@ -431,7 +432,7 @@ bestTree <- OptimalValidationGBMValues3[3]
 OptimalValidationGBMValNoNAs <- gridCrossValidationGBM(xGen = cbind(na.omit(projects[indicesTrainProjects, ])[trainIndicesy , projectPredictors], essaysLength[indicesTrainEssays[noNAIndices]][trainIndicesy], projectsCBSAandCSA[indicesTrainEssays[noNAIndices], ][trainIndicesy, 1]),                                                                   
                                                        yGen = y[noNAIndices[trainIndicesy]], sampleIndices, amountOfTrees,
                                                        NumberofCVFolds, cores,
-                                                       distributionSelected = 'adaboost',
+                                                       distributionSelected = 'bernoulli',
                                                        seq(1, treeDepth, 3), c(0.001, 0.003))
 
 #optimal hipeparameters for tree depth and for shrinkage without NAs
@@ -440,6 +441,9 @@ optimalShrinkageNoNAS <- OptimalValidationGBMValNoNAs[2]
 bestTreeNoNAS <- OptimalValidationGBMValNoNAs[3]
 
 #--------------------------------------#
+#NAs indices
+noNAIndices <- which(apply(is.na(projects[indicesTrainProjects, ]), 1, sum) == 0)
+
 #Model creation
 trainIndicesyNoNA <- sample(1:length(y[noNAIndices]), length(y[noNAIndices])) # Use this line to use the complete dataset and shuffle the data
 
@@ -459,22 +463,29 @@ GBMModel <- gbm.fit(x = cbind(projects[indicesProjectsShuffled, variablesIndices
                               essaysLength[indicesEssaysShuffled], 
                               projectsCBSAandCSA[indicesProjectsShuffled, 'CBSA']),
                     y = yGen[trainIndicesy], n.trees = bestTree, interaction.depth = optimalTreeDepth,
-                    shrinkage = optimalShrinkage, verbose = TRUE, distribution = 'adaboost',
-                    bag.fraction = 0.7
+                    shrinkage = optimalShrinkage, verbose = TRUE, distribution = 'bernoulli',
+                    bag.fraction = 0.65
                     )
 
 GBMModelNoCBSA <- gbm.fit(x = cbind(projects[indicesProjectsShuffled, variablesIndices],
                               essaysLength[indicesEssaysShuffled]),
                     y = yGen[trainIndicesy], n.trees = bestTreeNoCBSA, interaction.depth = optimalTreeDepthNoCBSA,
-                    shrinkage = optimalShrinkageNoCBSA, verbose = TRUE, distribution = 'adaboost',
-                    bag.fraction = 0.7
+                    shrinkage = optimalShrinkageNoCBSA, verbose = TRUE, distribution = 'bernoulli',
+                    bag.fraction = 0.65
 )
 
 GBMModelNoNAs <- gbm.fit(x = cbind(na.omit(projects[indicesTrainProjects, ])[trainIndicesyNoNA , projectPredictors], essaysLength[indicesTrainEssays[noNAIndices]][trainIndicesyNoNA], projectsCBSAandCSA[indicesTrainEssays[noNAIndices], ][trainIndicesyNoNA, 1]),
                          y = yGen[noNAIndices[trainIndicesyNoNA]], n.trees = bestTreeNoNAS, 
                          interaction.depth = optimalTreeDepthNoNAS,
-                         shrinkage = optimalShrinkageNoNAS, verbose = TRUE, distribution = 'adaboost',
-                         bag.fraction = 0.7
+                         shrinkage = optimalShrinkageNoNAS, verbose = TRUE, distribution = 'bernoulli',
+                         bag.fraction = 0.65
+)
+
+GBMModelNoNAsNoCBSA <- gbm.fit(x = cbind(na.omit(projects[indicesTrainProjects, ])[trainIndicesyNoNA , projectPredictors], essaysLength[indicesTrainEssays[noNAIndices]][trainIndicesyNoNA]),
+                               y = yGen[noNAIndices[trainIndicesyNoNA]], n.trees = bestTreeNoNAS, 
+                               interaction.depth = optimalTreeDepthNoNAS,
+                               shrinkage = optimalShrinkageNoNAS, verbose = TRUE, distribution = 'bernoulli',
+                               bag.fraction = 0.65
 )
 
 summary.gbm(GBMModel)
@@ -497,10 +508,22 @@ predictionGBMNoNAs <- predict(GBMModelNoNAs, newdata = cbind(projects[indicesTes
                                                              projectsCBSAandCSA[indicesTestProjects, 'CBSA']),
                                    n.trees = bestTreeNoNAS , type = 'response')
 
-#Save .csv file 
-submissionTemplate$is_exciting <- predictionGBM
-write.csv(submissionTemplate, file = "predictionXIII.csv", row.names = FALSE, quote = FALSE)
+predictionGBMNoNAsNoCBSA <- predict(GBMModelNoNAsNoCBSA, newdata = cbind(projects[indicesTestProjects, variablesIndices], 
+                                                                         essaysLength[indicesTestEssays]),
+                                    n.trees = bestTreeNoNAS , type = 'response')
 
 #Save .csv file 
-submissionTemplate$is_exciting <- predictionGBMUnderloaded
-write.csv(submissionTemplate, file = "predictionXIV.csv", row.names = FALSE, quote = FALSE)
+submissionTemplate$is_exciting <- predictionGBM
+write.csv(submissionTemplate, file = "predictionXX.csv", row.names = FALSE, quote = FALSE)
+
+#Save .csv file 
+submissionTemplate$is_exciting <- predictionNoCBSAGBM
+write.csv(submissionTemplate, file = "predictionXXI.csv", row.names = FALSE, quote = FALSE)
+
+#Save .csv file 
+submissionTemplate$is_exciting <- predictionGBMNoNAs
+write.csv(submissionTemplate, file = "predictionXXII.csv", row.names = FALSE, quote = FALSE)
+
+#Save .csv file 
+submissionTemplate$is_exciting <- predictionGBMNoNAsNoCBSA
+write.csv(submissionTemplate, file = "predictionXXIII.csv", row.names = FALSE, quote = FALSE)
