@@ -161,6 +161,7 @@ positiveFrecuencies <- ddply(projects[indicesTrainProjects[y == 't'], ], .(YearM
 totalFrecuencies <- ddply(projects[indicesTrainProjects, ], .(YearMonth), nrow)
 names(positiveFrecuencies) <- c('YearMonth', 'ExcitingProjects')
 names(totalFrecuencies) <- c('YearMonth', 'TotalProjects')
+par(mfrow=c(2, 1))
 ggplot(data = positiveFrecuencies, aes(x = YearMonth, y = ExcitingProjects, group = 1)) +  geom_line() +  geom_point()
 ggplot(data = totalFrecuencies, aes(x = YearMonth, y = TotalProjects, group = 1)) +  geom_line() +  geom_point()
 
@@ -188,8 +189,8 @@ fit <- auto.arima(myts)
 fitFull <- auto.arima(mytsAll)
 
 modelForecast <- forecast(fit, 5)
-plot(modelForecast)
 modelForecastFull <- forecast(fitFull, 5)
+plot(modelForecast)
 plot(modelForecastFull)
 
 #Performing a Backcast to generate simulated probabilities before May 2010 where there are no exciting projects
