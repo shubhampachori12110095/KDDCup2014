@@ -207,7 +207,7 @@ bc$x <- myts
 # Plot result
 plot(bc, xlim=c(tsp(myts)[1]-abs(length(myts) - length(mytsAll))/12, tsp(myts)[2]))
 
-positiveFrecuencies <- c(rev(as.numeric(bc$mean)), positiveFrecuencies[,2], as.numeric(modelForecast$mean))
+positiveFrecuencies <- c(as.numeric(bc$mean), positiveFrecuencies[,2], as.numeric(modelForecast$mean))
 positiveFrecuencies[positiveFrecuencies<0] <- 0
 totalFrecuencies <- c(totalFrecuencies[,2], as.numeric(modelForecastFull$mean))
 
@@ -217,7 +217,7 @@ positiveProbs <- as.data.frame(cbind(sort(unique(projects$YearMonth)),
                                     totalFrecuencies))
 
 names(positiveProbs) <- c('YearMonth', 'positiveProb', 'PositiveFreq', 'TotalFreq')
-positiveProbs$positiveProb[positiveProb<=0] <- 0.00001
+positiveProbs$positiveProb[positiveProbs$positiveProb<=0] <- 0.00001
 ggplot(data = positiveProbs, aes(x = YearMonth, y = positiveProb, group = 1)) +  geom_line() +  geom_point()
 
 #CreAte extra columns in projects data; containing: probabilities of being positive, positive frequencies and total frecuencies

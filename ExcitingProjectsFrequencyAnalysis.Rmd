@@ -1,12 +1,12 @@
 *KDD Cup 2014 - Predicting Excitement at DonorsChoose.org
-How Many Exciting Projects are out there?
+How Many Exciting Projects Are Out There?
 ========================================================
 How many projects are exciting are there? 
 How many projects are exciting?
-What is the likelihood of an exiting project to appear?
+What is the likelihood of an exciting project to appear?
 Is the data seasonal? Is there a trend?
 
-There are some of the questions posted by the KDD Cup challenge of this year. I tried to answer them with the help of some visualizations. I hope they are of help to all of you as they have been to me. Enjoy!
+There are some of the questions posed by the KDD Cup challenge of this year. I tried to answer them with the help of some visualizations. I hope they are helpful as much as they have been to me. 
 
 First we start off by loading the libraries and data needed for this analysis.
 
@@ -37,7 +37,7 @@ indicesTrainProjects <- match(outcomes$projectid, projects$projectid)
 Aggregate projects by month
 ------------
 
-We will use the *ddply* function which is part of the *plyr* library. This is done in order to create an additional column containing only the month in which the project was posted/proposed. "The *plyr* family functions work a bit like the map-reduce-style data aggregation tools that have risen in popularity over the past several years." -Drew Conway & John Myles White, Machine Learning for Hackers
+We will use the *ddply* function which is part of the *plyr* library. We do this in order to create an additional column containing only the month in which the project was posted/proposed. "The *plyr* family functions work a bit like the map-reduce-style data aggregation tools that have risen in popularity over the past several years." -Drew Conway & John Myles White, Machine Learning for Hackers
 
 ```{r results='hide'}
 #Lets create an additional column with the only the year and month 
@@ -56,7 +56,7 @@ head(positiveFrequencies)
 ```
 And now we can visualize the frequencies of EXCITING projects per month and the number of total projects per month.
 
-```{r fig.width=11, fig.height=5}
+```{r fig.width=16, fig.height=5}
 names(positiveFrequencies) <- c('YearMonth', 'ExcitingProjects')
 names(totalFrequencies) <- c('YearMonth', 'TotalProjects')
 ggplot(data = positiveFrequencies, aes(x = YearMonth, y = ExcitingProjects, group = 1)) +  geom_line() +  geom_point()
@@ -76,13 +76,13 @@ mytsAll <- ts(totalFrequencies[,2], start=c(2002, 9), end=c(2013, 12), frequency
 
 Based on these time series we will be able to create a seasonal decomposition and view all the factors and trends involved for both, the exciting projects and the total number of projects. The decomposition is done with the *stl* function from the *stats* package.
 
-```{r fig.width=11, fig.height=5}
+```{r fig.width=16, fig.height=5}
 # Seasonal decompostion
 plot(stl(myts, s.window="period"), main = 'Exciting Projects Decomposition')
 plot(stl(mytsAll, s.window="period"), main = 'All Projects Decomposition')
 ```
 As can be seen there are certain peaks specially during summer months, so a month plot can be of help here. Of course there are interesting patterns but that I will leave it for now. The function *seasonplot* can be found in the *forecast* library.
-```{r results='hold', fig.width=11, fig.height=5}
+```{r results='hold', fig.width=16, fig.height=5}
 seasonplot(myts) 
 seasonplot(mytsAll) 
 ```
@@ -95,9 +95,9 @@ As it was already probably noticed by many of the competitors of the KDD Cup 201
 
 We will forecast the frequencies for the next five months (Until May 2014) corresponding to the last test value found in the projects data frame.
 
-Here we can see the expected values during those months and the 80% (dark blue) and 95% (light blue) Confidence level for prediction intervals. The solid line is the mean.
+Here we can see the expected values during those months and the 80% (dark blue) and 95% (light blue) confidence level for prediction intervals. The blue solid line is the mean.
 
-```{r results='hold', fig.width=11, fig.height=5}
+```{r results='hold', fig.width=16, fig.height=5}
 # Automated forecasting using an ARIMA model
 #Fit the models
 fit <- auto.arima(myts)
@@ -108,10 +108,10 @@ modelForecastFull <- forecast(fitFull, 5)
 plot(modelForecast)
 plot(modelForecastFull)
 ```
-Backcasting the data is a basically doing a forecast with reverted data, though the visualization process is a little tricky. It was done with the help of the article "Backcasting in R"
+Backcasting data is a basically doing a forecast with reverted data, though the visualization process is a little tricky. It was done with the help of the article "Backcasting in R"
 by Rob J. Hyndman *http://robjhyndman.com/hyndsight/backcasting/* *http://www.r-bloggers.com/backcasting-in-r/* It is somewhat hard to realize but most of the backcasted values are negative showing us that the chance of getting an exciting project was nearly null according to the historic trends.
 
-```{r results='hold', fig.width=11, fig.height=5}
+```{r results='hold', fig.width=16, fig.height=5}
 #Performing a Backcast to generate simulated probabilities before May 2010 where there are no exciting projects
 # Reverse time
 revmyts <- ts(rev(myts), frequency=12)
@@ -131,9 +131,9 @@ Exciting Projects Probabilities
 ------------
 Lastly, I'd like to show you the probabilities of having an exciting project and how it has varied over time. It was done by merging the forecasted and backcasted projects with the projects data into two time series: one for the total number of projects and another for the number of exciting projects ranging from 2002 to 2014. Whenever negative forecasted values are present we will use a value of zero given that there cannot be negative exciting projects. The same holds for the probabilities, whenever the number of exciting projects is zero and thus the result of the division is zero we will change it to a probability of 0.0001 just to show that there was indeed a slight chance of getting an exciting project. 
 
-```{r results='hold', fig.width=11, fig.height=5}
+```{r fig.width=16, fig.height=5}
 #Appending data with forecast and backcast results (means)
-positiveFrequencies <- c(rev(as.numeric(bc$mean)), positiveFrequencies[,2], as.numeric(modelForecast$mean))
+positiveFrequencies <- c(as.numeric(bc$mean), positiveFrequencies[,2], as.numeric(modelForecast$mean))
 totalFrequencies <- c(totalFrequencies[,2], as.numeric(modelForecastFull$mean))
 #Change negative backcast values to zero
 positiveFrequencies[positiveFrequencies<0] <- 0
@@ -143,8 +143,6 @@ positiveProbs <- as.data.frame(cbind(sort(unique(projects$YearMonth)),
                                     positiveFrequencies, 
                                     totalFrequencies))
 names(positiveProbs) <- c('YearMonth', 'positiveProb', 'PositiveFreq', 'TotalFreq')
-#Change zero chance to a positive yet low probability
-positiveProbs$positiveProb[positiveProb<=0] <- 0.00001
 ggplot(data = positiveProbs, aes(x = YearMonth, y = positiveProb, group = 1)) +  geom_line() +  geom_point()
 
 ```
