@@ -2,7 +2,7 @@ gridCrossValidationGBM <- function(xGen, yGen, subset, numberOfTrees,
                                    xValFolds, coresAmount, treeDepthVector, shrinkageVector,
                                    OOBPercentage = 0.8, 
                                    plot = TRUE, distributionSelected = 'bernoulli',
-                                   singleTreeFraction = 0.7){
+                                   singleTreeFraction = 0.65){
   
   #libraries
   require('Metrics')
@@ -12,7 +12,7 @@ gridCrossValidationGBM <- function(xGen, yGen, subset, numberOfTrees,
   yGen <- ifelse(yGen == 't', 1, 0)
     
   #Cross validates features selected by the user
-  grid <- expand.grid(treeDepthVector, shrinkageVector, stringsAsFactors = TRUE) #this creates all possible combinations of the elements in treeDepthVector and shrinkageVector
+  grid <- expand.grid(treeDepthVector, shrinkageVector, singleTreeFraction, stringsAsFactors = TRUE) #this creates all possible combinations of the elements in treeDepthVector and shrinkageVector
   
   trainError <- rep(NA, nrow(grid))
   oobError <- rep(NA, nrow(grid))
@@ -25,7 +25,8 @@ gridCrossValidationGBM <- function(xGen, yGen, subset, numberOfTrees,
                      n.trees = numberOfTrees, interaction.depth = grid[i, 1],
                      shrinkage = grid[i, 2], 
                      verbose = TRUE, distribution = distributionSelected,
-                     nTrain = floor(length(subset) * OOBPercentage), bag.fraction = singleTreeFraction)
+                     nTrain = floor(length(subset) * OOBPercentage), 
+                     bag.fraction = grid[i, 3])
     
     print(gbm.perf(model, oobag.curve = TRUE, method = 'OOB'))
     
@@ -41,7 +42,7 @@ gridCrossValidationGBM <- function(xGen, yGen, subset, numberOfTrees,
     #                        break, predictionGBM <- exp(predictionGBM))
     
     aucError[i] <- auc(yGen[-subset], predictionGBM)     
-    print(paste('Error for tree depth', grid[i, 1], 'with shrinkage', grid[i, 2], 'calculated.',
+    print(paste('Error for tree depth of', grid[i, 1], 'with shrinkage', grid[i, 2], 'calculated.',
                   'Out of', grid[nrow(grid), 1], 'trees.', 'AUC of', aucError[i]))    
     
     #best tree
