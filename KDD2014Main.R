@@ -157,18 +157,17 @@ save(resourcesOnProjectsTest, file = 'resourcesOnProjectsTest.RData')
 #Additional column containing only the month when the project was posted
 projects$YearMonth <- strftime(projects$date_posted, format = '%Y-%m')
 #Aggregate occurrences to create a monthly frecuence
-positiveFrecuencies <- ddply(projects[indicesTrainProjects[y == 't'], ], .(YearMonth), nrow)
-totalFrecuencies <- ddply(projects[indicesTrainProjects, ], .(YearMonth), nrow)
-names(positiveFrecuencies) <- c('YearMonth', 'ExcitingProjects')
-names(totalFrecuencies) <- c('YearMonth', 'TotalProjects')
-par(mfrow=c(2, 1))
-ggplot(data = positiveFrecuencies, aes(x = YearMonth, y = ExcitingProjects, group = 1)) +  geom_line() +  geom_point()
-ggplot(data = totalFrecuencies, aes(x = YearMonth, y = TotalProjects, group = 1)) +  geom_line() +  geom_point()
+positiveFrequencies <- ddply(projects[indicesTrainProjects[y == 't'], ], .(YearMonth), nrow)
+totalFrequencies <- ddply(projects[indicesTrainProjects, ], .(YearMonth), nrow)
+names(positiveFrequencies) <- c('YearMonth', 'ExcitingProjects')
+names(totalFrequencies) <- c('YearMonth', 'TotalProjects')
+ggplot(data = positiveFrequencies, aes(x = YearMonth, y = ExcitingProjects, group = 1)) +  geom_line() +  geom_point()
+ggplot(data = totalFrequencies, aes(x = YearMonth, y = TotalProjects, group = 1)) +  geom_line() +  geom_point()
 
 # from 2010 to Dec 2013 as a time series object
-myts <- ts(positiveFrecuencies[,2], start=c(2010, 4), end=c(2013, 12), frequency = 12)
+myts <- ts(positiveFrequencies[,2], start=c(2010, 4), end=c(2013, 12), frequency = 12)
 #from 2002 to Dec 2013 all training dataa as a time series object
-mytsAll <- ts(totalFrecuencies[,2], start=c(2002, 9), end=c(2013, 12), frequency = 12)
+mytsAll <- ts(totalFrequencies[,2], start=c(2002, 9), end=c(2013, 12), frequency = 12)
 
 # plot series, ggplot above is nicer
 plot(myts)
@@ -207,22 +206,23 @@ bc$x <- myts
 # Plot result
 plot(bc, xlim=c(tsp(myts)[1]-abs(length(myts) - length(mytsAll))/12, tsp(myts)[2]))
 
-positiveFrecuencies <- c(as.numeric(bc$mean), positiveFrecuencies[,2], as.numeric(modelForecast$mean))
-positiveFrecuencies[positiveFrecuencies<0] <- 0
-totalFrecuencies <- c(totalFrecuencies[,2], as.numeric(modelForecastFull$mean))
+positiveFrequencies <- c(as.numeric(bc$mean), positiveFrequencies[,2], as.numeric(modelForecast$mean))
+positiveFrequencies[positiveFrequencies<0] <- 0
+totalFrequencies <- c(totalFrequencies[,2], as.numeric(modelForecastFull$mean))
 
 positiveProbs <- as.data.frame(cbind(sort(unique(projects$YearMonth)), 
-                                    positiveFrecuencies/totalFrecuencies, 
-                                    positiveFrecuencies, 
-                                    totalFrecuencies))
+                                     positiveFrequencies/totalFrequencies, 
+                                     positiveFrequencies, 
+                                     totalFrequencies), stringsAsFactors = FALSE)
 
 names(positiveProbs) <- c('YearMonth', 'positiveProb', 'PositiveFreq', 'TotalFreq')
+positiveProbs <- transform(positiveProbs, YearMonth = as.factor(YearMonth), positiveProb = as.numeric(positiveProb),
+                           PositiveFreq = as.numeric(PositiveFreq), TotalFreq = as.numeric(TotalFreq))
 positiveProbs$positiveProb[positiveProbs$positiveProb<=0] <- 0.00001
 ggplot(data = positiveProbs, aes(x = YearMonth, y = positiveProb, group = 1)) +  geom_line() +  geom_point()
 
 #CreAte extra columns in projects data; containing: probabilities of being positive, positive frequencies and total frecuencies
 projects <- merge(projects, positiveProbs, by = 'YearMonth')
-save(projects, file = 'projects.RData')
 #-------------------------
 #Preprocessing
 projects <- transform(projects, YearMonth = as.factor(YearMonth), school_city = as.factor(school_city), school_state = as.factor(school_state),
@@ -256,6 +256,9 @@ projectsCBSAandCSA[is.na(projectsCBSAandCSA[ ,'CBSA']), 'CBSA'] <- 'rural'
 projectsCBSAandCSA[is.na(projectsCBSAandCSA[ ,'CSA']), 'CSA'] <- 'rural'
 projectsCBSAandCSA <- transform(projectsCBSAandCSA, CBSA = as.factor(CBSA), 
                                       CSA = as.factor(CSA))
+
+save(projects, file = 'projectsExtraFeatures.RData')
+save(projectsCBSAandCSA, file = 'projectsCBSAandCSAPLUS.RData')
 
 #################################################################
 #EDA
@@ -301,10 +304,10 @@ with(na.omit(projects[indicesTrainProjects, ])[ , variablesIndicesFull],
 yGen <- ifelse(y == 't', 1, 0)
 
 #Forward Stepwise Selection
-projectsFit <- regsubsets(yGen ~ . , 
-                          data = cbind(na.omit(projects[indicesTrainProjects, ])[trainIndicesy , variablesIndicesFull], 
-                                       yGen[noNAIndices[trainIndicesy]]),
-                          method = "forward", na.action="na.exclude")
+#projectsFit <- regsubsets(yGen ~ . , 
+#                          data = cbind(na.omit(projects[indicesTrainProjects, ])[trainIndicesy , variablesIndicesFull], 
+#                                       yGen[noNAIndices[trainIndicesy]]),
+#                          method = "forward", na.action="na.exclude")
 
 #projectsFit2 <- glmulti(yGen ~ . , 
 #                       data = cbind(na.omit(projects[indicesTrainProjects, ])[trainIndicesy , variablesIndicesFull], 
@@ -315,13 +318,13 @@ projectsFit <- regsubsets(yGen ~ . ,
 #                       y = yGen[noNAIndices[trainIndicesy]], family = 'binomial')
 
 projectsFit4 <- gbm.fit(x = cbind(na.omit(projects[indicesTrainProjects, ])[trainIndicesy , variablesIndicesFull], essaysLength[indicesTrainEssays[noNAIndices]][trainIndicesy], projectsCBSAandCSA[indicesTrainEssays[noNAIndices], ][trainIndicesy, ]),
-                       y = yGen[noNAIndices[trainIndicesy]],  n.trees = 2500, interaction.depth = 7,
-                       shrinkage = 0.001, verbose = TRUE, distribution = 'bernoulli', 
+                       y = yGen[noNAIndices[trainIndicesy]],  n.trees = 2500, interaction.depth = 5,
+                       shrinkage = 0.001, verbose = TRUE, distribution = 'adaboost', 
                        bag.fraction = 0.65, nTrain = floor(nTrainingSamples * 0.7))
 
 projectsFit5 <- gbm.fit(x = cbind(na.omit(projects[indicesTrainProjects, ])[trainIndicesy , variablesIndicesFull], essaysLength[indicesTrainEssays[noNAIndices]][trainIndicesy]),
-                        y = yGen[noNAIndices[trainIndicesy]],  n.trees = 2500, interaction.depth = 7,
-                        shrinkage = 0.001, verbose = TRUE, distribution = 'bernoulli', 
+                        y = yGen[noNAIndices[trainIndicesy]],  n.trees = 2500, interaction.depth = 5,
+                        shrinkage = 0.001, verbose = TRUE, distribution = 'adaboost', 
                         bag.fraction = 0.65, nTrain = floor(nTrainingSamples * 0.7))
 
 predict4 <- predict.gbm(projectsFit4, newdata = cbind(na.omit(projects[indicesTrainProjects, ])[-trainIndicesy , variablesIndicesFull], essaysLength[indicesTrainEssays[noNAIndices]][-trainIndicesy], projectsCBSAandCSA[indicesTrainEssays[noNAIndices], ][-trainIndicesy, ]),
@@ -351,6 +354,7 @@ projectPredictorsCBSA <- na.omit(match(variablesIndices4, names(projects)))
 variablesIndices5 <- as.character(sum4$var[sum4$rel.inf > 0.01])
 projectPredictorsNOCBSA <- na.omit(match(variablesIndices5, names(projects)))
 projectPredictors <- intersect(projectPredictorsCBSA, projectPredictorsNOCBSA)
+save(projectPredictors, file = 'projectPredictors.RData')
 
 #####################################################################
 #Simple Validation Projects Model
@@ -398,14 +402,14 @@ OptimalValidationGBMValues2 <- gridCrossValidationGBM(xGen = cbind(projects[indi
                                                                   essaysLength[indicesEssaysShuffled]), 
                                                      yGen = y[trainIndicesy], sampleIndices, amountOfTrees,
                                                      NumberofCVFolds, cores,
-                                                     distributionSelected = 'bernoulli',
+                                                     distributionSelected = 'adaboost',
                                                      seq(1, treeDepth, 3), c(0.001, 0.003))
 
 OptimalValidationGBMValues3 <- gridCrossValidationGBM(xGen = cbind(projects[indicesProjectsShuffled, projectPredictors],
                                                                   essaysLength[indicesEssaysShuffled], 
                                                                   projectsCBSAandCSA[indicesProjectsShuffled, 'CBSA']), 
                                                      yGen = y[trainIndicesy], sampleIndices, amountOfTrees,
-                                                     distributionSelected = 'bernoulli',
+                                                     distributionSelected = 'adaboost',
                                                      NumberofCVFolds, cores,
                                                      seq(1, treeDepth, 3), c(0.001, 0.003))
 
@@ -433,7 +437,7 @@ bestTree <- OptimalValidationGBMValues3[3]
 OptimalValidationGBMValNoNAs <- gridCrossValidationGBM(xGen = cbind(na.omit(projects[indicesTrainProjects, ])[trainIndicesy , projectPredictors], essaysLength[indicesTrainEssays[noNAIndices]][trainIndicesy], projectsCBSAandCSA[indicesTrainEssays[noNAIndices], ][trainIndicesy, 1]),                                                                   
                                                        yGen = y[noNAIndices[trainIndicesy]], sampleIndices, amountOfTrees,
                                                        NumberofCVFolds, cores,
-                                                       distributionSelected = 'bernoulli',
+                                                       distributionSelected = 'adaboost',
                                                        seq(1, treeDepth, 3), c(0.001, 0.003))
 
 #optimal hipeparameters for tree depth and for shrinkage without NAs
@@ -464,28 +468,28 @@ GBMModel <- gbm.fit(x = cbind(projects[indicesProjectsShuffled, variablesIndices
                               essaysLength[indicesEssaysShuffled], 
                               projectsCBSAandCSA[indicesProjectsShuffled, 'CBSA']),
                     y = yGen[trainIndicesy], n.trees = bestTree, interaction.depth = optimalTreeDepth,
-                    shrinkage = optimalShrinkage, verbose = TRUE, distribution = 'bernoulli',
+                    shrinkage = optimalShrinkage, verbose = TRUE, distribution = 'adaboost',
                     bag.fraction = 0.65
                     )
 
 GBMModelNoCBSA <- gbm.fit(x = cbind(projects[indicesProjectsShuffled, variablesIndices],
                               essaysLength[indicesEssaysShuffled]),
                     y = yGen[trainIndicesy], n.trees = bestTreeNoCBSA, interaction.depth = optimalTreeDepthNoCBSA,
-                    shrinkage = optimalShrinkageNoCBSA, verbose = TRUE, distribution = 'bernoulli',
+                    shrinkage = optimalShrinkageNoCBSA, verbose = TRUE, distribution = 'adaboost',
                     bag.fraction = 0.65
 )
 
 GBMModelNoNAs <- gbm.fit(x = cbind(na.omit(projects[indicesTrainProjects, ])[trainIndicesyNoNA , projectPredictors], essaysLength[indicesTrainEssays[noNAIndices]][trainIndicesyNoNA], projectsCBSAandCSA[indicesTrainEssays[noNAIndices], ][trainIndicesyNoNA, 1]),
                          y = yGen[noNAIndices[trainIndicesyNoNA]], n.trees = bestTreeNoNAS, 
                          interaction.depth = optimalTreeDepthNoNAS,
-                         shrinkage = optimalShrinkageNoNAS, verbose = TRUE, distribution = 'bernoulli',
+                         shrinkage = optimalShrinkageNoNAS, verbose = TRUE, distribution = 'adaboost',
                          bag.fraction = 0.65
 )
 
 GBMModelNoNAsNoCBSA <- gbm.fit(x = cbind(na.omit(projects[indicesTrainProjects, ])[trainIndicesyNoNA , projectPredictors], essaysLength[indicesTrainEssays[noNAIndices]][trainIndicesyNoNA]),
                                y = yGen[noNAIndices[trainIndicesyNoNA]], n.trees = bestTreeNoNAS, 
                                interaction.depth = optimalTreeDepthNoNAS,
-                               shrinkage = optimalShrinkageNoNAS, verbose = TRUE, distribution = 'bernoulli',
+                               shrinkage = optimalShrinkageNoNAS, verbose = TRUE, distribution = 'adaboost',
                                bag.fraction = 0.65
 )
 

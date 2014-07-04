@@ -1,7 +1,7 @@
 *KDD Cup 2014 - Predicting Excitement at DonorsChoose.org
 How Many Exciting Projects Are Out There?
 ========================================================
-How many projects are exciting are there? 
+How many projects are there? 
 How many projects are exciting?
 What is the likelihood of an exciting project to appear?
 Is the data seasonal? Is there a trend?
@@ -83,6 +83,7 @@ plot(stl(mytsAll, s.window="period"), main = 'All Projects Decomposition')
 ```
 As can be seen there are certain peaks specially during summer months, so a month plot can be of help here. Of course there are interesting patterns but that I will leave it for now. The function *seasonplot* can be found in the *forecast* library.
 ```{r results='hold', fig.width=16, fig.height=5}
+par(mfrow=c(2, 1))
 seasonplot(myts) 
 seasonplot(mytsAll) 
 ```
@@ -105,6 +106,7 @@ fitFull <- auto.arima(mytsAll)
 #Prediction/forecast 
 modelForecast <- forecast(fit, 5)
 modelForecastFull <- forecast(fitFull, 5)
+par(mfrow=c(2, 1))
 plot(modelForecast)
 plot(modelForecastFull)
 ```
