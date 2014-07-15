@@ -576,7 +576,9 @@ raw = f.read()
 corp = raw.lower()
 #Tokenize sentences
 sentences = nltk.sent_tokenize(corp)    #sent_tokenize needs the punkt corpora from NLTK
-print sentences
+sentences[-1] = sentences[-1].replace('\n', '')
+sentences = [s.replace('.', '') for s in sentences]
+len(sentences)  #The original POMS lists 65 words / phrases.
 
 "
 python.exec(mainCode)
