@@ -519,16 +519,64 @@ predictionGBMNoNAsNoCBSA <- predict(GBMModelNoNAsNoCBSA, newdata = cbind(project
 
 #Save .csv file 
 submissionTemplate$is_exciting <- predictionGBM
-write.csv(submissionTemplate, file = "predictionXX.csv", row.names = FALSE, quote = FALSE)
+write.csv(submissionTemplate, file = "predictionXIX.csv", row.names = FALSE)
 
 #Save .csv file 
 submissionTemplate$is_exciting <- predictionNoCBSAGBM
-write.csv(submissionTemplate, file = "predictionXXI.csv", row.names = FALSE, quote = FALSE)
+write.csv(submissionTemplate, file = "predictionXX.csv", row.names = FALSE)
 
 #Save .csv file 
 submissionTemplate$is_exciting <- predictionGBMNoNAs
-write.csv(submissionTemplate, file = "predictionXXII.csv", row.names = FALSE, quote = FALSE)
+write.csv(submissionTemplate, file = "predictionXXIII.csv", row.names = FALSE)
 
 #Save .csv file 
 submissionTemplate$is_exciting <- predictionGBMNoNAsNoCBSA
-write.csv(submissionTemplate, file = "predictionXXIII.csv", row.names = FALSE, quote = FALSE)
+write.csv(submissionTemplate, file = "predictionXXIV.csv", row.names = FALSE)
+
+#Addendum
+#Sentiment analysis in python cross-language code
+#Assign variables to be analyzed in python
+
+require('rPython')
+
+essaysContent <- essays$essay
+essaysShortDescription <- essays$short_description
+
+mainCode <- 
+"
+import os
+import sys
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib as mpl
+import nltk
+from nltk.corpus.reader.plaintext import PlaintextCorpusReader
+
+#Init
+#directories
+wd = '/home/wacax/Wacax/Kaggle/KDD Cup 2014/KDD Cup 2014/'
+dataDir = '/home/wacax/Wacax/Kaggle/KDD Cup 2014/Data/'
+
+#Change working directory
+os.chdir(wd)
+sys.path.append(wd)
+
+#Add user defined functions
+from GoelMittalScore import gmscore
+
+#Print Current Working Directory
+print(os.getcwd())
+
+from nltk.corpus import wordnet as wn
+
+#Load original POMS 'Profile of Mood States' words / phrases.
+f = open(dataDir + 'wordsPOMS.txt') #wordsPOMS.txt was obtained from http://www.brianmac.co.uk/poms.htm
+raw = f.read()
+corp = raw.lower()
+#Tokenize sentences
+sentences = nltk.sent_tokenize(corp)    #sent_tokenize needs the punkt corpora from NLTK
+print sentences
+
+"
+python.exec(mainCode)

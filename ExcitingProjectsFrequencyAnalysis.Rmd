@@ -82,7 +82,7 @@ plot(stl(myts, s.window="period"), main = 'Exciting Projects Decomposition')
 plot(stl(mytsAll, s.window="period"), main = 'All Projects Decomposition')
 ```
 As can be seen there are certain peaks specially during summer months, so a month plot can be of help here. Of course there are interesting patterns but that I will leave it for now. The function *seasonplot* can be found in the *forecast* library.
-```{r results='hold', fig.width=16, fig.height=5}
+```{r results='hold', fig.width=16, fig.height=12}
 par(mfrow=c(2, 1))
 seasonplot(myts) 
 seasonplot(mytsAll) 
@@ -98,7 +98,7 @@ We will forecast the frequencies for the next five months (Until May 2014) corre
 
 Here we can see the expected values during those months and the 80% (dark blue) and 95% (light blue) confidence level for prediction intervals. The blue solid line is the mean.
 
-```{r results='hold', fig.width=16, fig.height=5}
+```{r results='hold', fig.width=16, fig.height=12}
 # Automated forecasting using an ARIMA model
 #Fit the models
 fit <- auto.arima(myts)
